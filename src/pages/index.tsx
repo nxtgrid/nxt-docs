@@ -7,6 +7,81 @@ import Heading from '@theme/Heading';
 
 import styles from './index.module.css';
 
+type Repo = {
+  name: string;
+  description: string;
+  url: string;
+};
+
+const repos: Repo[] = [
+  {
+    name: 'nxt-backend',
+    description:
+      'Backend platform for mini-grid operations, payments, monitoring, and prepaid meter interactions.',
+    url: 'https://github.com/nxtgrid/nxt-backend',
+  },
+  {
+    name: 'nxt-sts',
+    description:
+      'Spring Boot microservice for IEC 62055-41 STS prepayment token generation.',
+    url: 'https://github.com/nxtgrid/nxt-sts',
+  },
+  {
+    name: 'nxt-topup',
+    description:
+      'Customer-facing PWA for prepaid meter top-ups and transaction history.',
+    url: 'https://github.com/nxtgrid/nxt-topup',
+  },
+  {
+    name: 'nxt-crm',
+    description:
+      'PWA dashboard for mini-grid developers and operators to monitor and manage sites.',
+    url: 'https://github.com/nxtgrid/nxt-crm',
+  },
+  {
+    name: 'nxt-field-ops',
+    description:
+      'Field technician PWA for installation, commissioning, and fault resolution workflows.',
+    url: 'https://github.com/nxtgrid/nxt-field-ops',
+  },
+  {
+    name: 'nxt-control-room',
+    description:
+      'Operations dashboard for managing infrastructure, users, payments, and commissioning.',
+    url: 'https://github.com/nxtgrid/nxt-control-room',
+  },
+  {
+    name: 'nxt-ui-components',
+    description:
+      'Shared Vue 3 components, composables, styles, and integration layers for NXT apps.',
+    url: 'https://github.com/nxtgrid/nxt-ui-components',
+  },
+  {
+    name: 'nxt-ai-assistant',
+    description:
+      'Production-ready chat orchestrator with Gemini, dynamic instructions, RAG, and MCP integration.',
+    url: 'https://github.com/nxtgrid/nxt-ai-assistant',
+  },
+  {
+    name: 'nxt-gis',
+    description:
+      'FastAPI geospatial backend for infrastructure planning and network optimization.',
+    url: 'https://github.com/nxtgrid/nxt-gis',
+  },
+  {
+    name: 'lorawan-cups-server',
+    description:
+      'Production-ready CUPS implementation for the Semtech binary protocol.',
+    url: 'https://github.com/nxtgrid/lorawan-cups-server',
+  },
+  {
+    name: 'lorawan-cert-renewer',
+    description:
+      'Automated TLS certificate renewal and credential packaging for LoRaWAN infrastructure.',
+    url: 'https://github.com/nxtgrid/lorawan-cert-renewer',
+  },
+];
+
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
   return (
@@ -35,7 +110,26 @@ export default function Home(): ReactNode {
       title={siteConfig.title}
       description="Unified documentation for NXT Grid open-source software">
       <HomepageHeader />
-      <main />
+      <main className={styles.main}>
+        <div className="container">
+          <section className={styles.section}>
+            <Heading as="h2">Open-source repositories</Heading>
+            <p className={styles.sectionLead}>
+              Central links for NXT Grid public projects.
+            </p>
+            <ul className={styles.repoList}>
+              {repos.map((repo) => (
+                <li key={repo.name} className={styles.repoItem}>
+                  <a href={repo.url} target="_blank" rel="noreferrer">
+                    <strong>{repo.name}</strong>
+                  </a>
+                  <p>{repo.description}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      </main>
     </Layout>
   );
 }

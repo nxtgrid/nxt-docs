@@ -21,3 +21,37 @@
   align-items: center;
   justify-content: center;
 }
+
+.main {
+  padding: 2rem 0 3rem;
+}
+
+.section {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.sectionLead {
+  margin-top: -0.5rem;
+  margin-bottom: 1.5rem;
+  opacity: 0.9;
+}
+
+.repoList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.repoItem {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  padding: 1rem;
+  background: var(--ifm-background-color);
+}
+
+.repoItem p {
+  margin: 0.5rem 0 0;
+}
