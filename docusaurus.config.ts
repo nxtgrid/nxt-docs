@@ -6,7 +6,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'NXT Docs',
-  tagline: 'Unified documentation for NXT Grid open-source software',
+  tagline: 'Unified documentation for NXT open-source software',
   favicon: 'img/favicon.svg',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future

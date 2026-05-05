@@ -108,14 +108,14 @@ export default function Home(): ReactNode {
   return (
     <Layout
       title={siteConfig.title}
-      description="Unified documentation for NXT Grid open-source software">
+      description="Unified documentation for NXT open-source software">
       <HomepageHeader />
       <main className={styles.main}>
         <div className="container">
           <section className={styles.section}>
             <Heading as="h2">Open-source repositories</Heading>
             <p className={styles.sectionLead}>
-              Central links for NXT Grid public projects.
+              Central links for NXT public projects.
             </p>
             <ul className={styles.repoList}>
               {repos.map((repo) => (

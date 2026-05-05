@@ -1,6 +1,6 @@
 # NXT Docs
 
-Docusaurus documentation hub for NXT Grid open-source repositories.
+Docusaurus documentation hub for NXT open-source repositories.
 
 ## Local development
 
