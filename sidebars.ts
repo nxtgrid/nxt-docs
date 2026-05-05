@@ -10,7 +10,24 @@ const sidebars: SidebarsConfig = {
         type: 'doc',
         id: 'repositories/index',
       },
-      items: ['repositories/nxt-backend'],
+      items: [
+        {
+          type: 'category',
+          label: 'nxt-backend',
+          link: {
+            type: 'doc',
+            id: 'repositories/nxt-backend',
+          },
+          items: [
+            'repositories/nxt-backend/tiamat',
+            'repositories/nxt-backend/talos',
+            'repositories/nxt-backend/loch',
+            'repositories/nxt-backend/yeti',
+            'repositories/nxt-backend/shared-libs',
+            'repositories/nxt-backend/data-layer',
+          ],
+        },
+      ],
     },
     'contributing',
     {
