@@ -15,22 +15,22 @@ type Repo = {
 
 const repos: Repo[] = [
   {
+    name: 'nxt-ai-assistant',
+    description:
+      'Production-ready chat orchestrator with Gemini, dynamic instructions, RAG, and MCP integration.',
+    url: 'https://github.com/nxtgrid/nxt-ai-assistant',
+  },
+  {
     name: 'nxt-backend',
     description:
       'Backend platform for mini-grid operations, payments, monitoring, and prepaid meter interactions.',
     url: 'https://github.com/nxtgrid/nxt-backend',
   },
   {
-    name: 'nxt-sts',
+    name: 'nxt-control-room',
     description:
-      'Spring Boot microservice for IEC 62055-41 STS prepayment token generation.',
-    url: 'https://github.com/nxtgrid/nxt-sts',
-  },
-  {
-    name: 'nxt-topup',
-    description:
-      'Customer-facing PWA for prepaid meter top-ups and transaction history.',
-    url: 'https://github.com/nxtgrid/nxt-topup',
+      'Operations dashboard for managing infrastructure, users, payments, and commissioning.',
+    url: 'https://github.com/nxtgrid/nxt-control-room',
   },
   {
     name: 'nxt-crm',
@@ -45,10 +45,22 @@ const repos: Repo[] = [
     url: 'https://github.com/nxtgrid/nxt-field-ops',
   },
   {
-    name: 'nxt-control-room',
+    name: 'nxt-gis',
     description:
-      'Operations dashboard for managing infrastructure, users, payments, and commissioning.',
-    url: 'https://github.com/nxtgrid/nxt-control-room',
+      'FastAPI geospatial backend for infrastructure planning and network optimization.',
+    url: 'https://github.com/nxtgrid/nxt-gis',
+  },
+  {
+    name: 'nxt-sts',
+    description:
+      'Spring Boot microservice for IEC 62055-41 STS prepayment token generation.',
+    url: 'https://github.com/nxtgrid/nxt-sts',
+  },
+  {
+    name: 'nxt-topup',
+    description:
+      'Customer-facing PWA for prepaid meter top-ups and transaction history.',
+    url: 'https://github.com/nxtgrid/nxt-topup',
   },
   {
     name: 'nxt-ui-components',
@@ -57,28 +69,16 @@ const repos: Repo[] = [
     url: 'https://github.com/nxtgrid/nxt-ui-components',
   },
   {
-    name: 'nxt-ai-assistant',
+    name: 'lorawan-cert-renewer',
     description:
-      'Production-ready chat orchestrator with Gemini, dynamic instructions, RAG, and MCP integration.',
-    url: 'https://github.com/nxtgrid/nxt-ai-assistant',
-  },
-  {
-    name: 'nxt-gis',
-    description:
-      'FastAPI geospatial backend for infrastructure planning and network optimization.',
-    url: 'https://github.com/nxtgrid/nxt-gis',
+      'Automated TLS certificate renewal and credential packaging for LoRaWAN infrastructure.',
+    url: 'https://github.com/nxtgrid/lorawan-cert-renewer',
   },
   {
     name: 'lorawan-cups-server',
     description:
       'Production-ready CUPS implementation for the Semtech binary protocol.',
     url: 'https://github.com/nxtgrid/lorawan-cups-server',
-  },
-  {
-    name: 'lorawan-cert-renewer',
-    description:
-      'Automated TLS certificate renewal and credential packaging for LoRaWAN infrastructure.',
-    url: 'https://github.com/nxtgrid/lorawan-cert-renewer',
   },
 ];
 

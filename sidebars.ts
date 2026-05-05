@@ -11,6 +11,7 @@ const sidebars: SidebarsConfig = {
         id: 'repositories/index',
       },
       items: [
+        'repositories/nxt-ai-assistant',
         {
           type: 'category',
           label: 'nxt-backend',
@@ -27,6 +28,15 @@ const sidebars: SidebarsConfig = {
             'repositories/nxt-backend/data-layer',
           ],
         },
+        'repositories/nxt-control-room',
+        'repositories/nxt-crm',
+        'repositories/nxt-field-ops',
+        'repositories/nxt-gis',
+        'repositories/nxt-sts',
+        'repositories/nxt-topup',
+        'repositories/nxt-ui-components',
+        'repositories/lorawan-cert-renewer',
+        'repositories/lorawan-cups-server',
       ],
     },
     'contributing',
