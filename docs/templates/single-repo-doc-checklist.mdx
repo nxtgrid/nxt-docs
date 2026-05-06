@@ -1,0 +1,34 @@
+---
+title: Single-Repo Doc Checklist
+---
+
+# Single-Repository Documentation Checklist
+
+Use this checklist for one-app-one-repo projects.
+
+## 1) Baseline repository page
+
+- [ ] Purpose section explains business/platform role.
+- [ ] Scope section defines what the repository owns.
+- [ ] Key components section covers core modules or flows.
+- [ ] Setup/run references point to the source repository docs.
+- [ ] Status section notes maturity and known documentation gaps.
+
+## 2) Interfaces and integrations
+
+- [ ] Identify main inputs/outputs (API, jobs, events, files).
+- [ ] List critical dependencies and downstream consumers.
+- [ ] Note external systems (payments, messaging, cloud services, etc.).
+
+## 3) Practical depth target
+
+- [ ] Enough detail for another engineer to understand why the repo exists.
+- [ ] Enough detail to locate setup/docs quickly.
+- [ ] No deep internals unless requested or high-risk integration areas require it.
+
+## 4) Quality gates before merge
+
+- [ ] Repository page is linked in `Repositories` overview.
+- [ ] Sidebar order conventions are preserved (`nxt-*`, then `lorawan-*`).
+- [ ] Content is concise and avoids stale boilerplate.
+- [ ] `npm run build` passes.

@@ -40,10 +40,15 @@ const sidebars: SidebarsConfig = {
       ],
     },
     'contributing',
+    'authors',
     {
       type: 'category',
       label: 'Templates',
-      items: ['templates/repository-template'],
+      items: [
+        'templates/repository-template',
+        'templates/monorepo-doc-checklist',
+        'templates/single-repo-doc-checklist',
+      ],
     },
   ],
 };
