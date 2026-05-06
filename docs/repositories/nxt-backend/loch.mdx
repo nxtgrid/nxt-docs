@@ -14,6 +14,26 @@ title: loch
 - Third-party integration tasks (Make.com, weather feeds, sunrise/sunset schedules, EpiCollect processing).
 - MQTT subscriptions for Victron telemetry streams.
 
-## Notes
+## Ownership boundaries
+
+- Owns asynchronous execution, retries, and schedule-based workflows.
+- Does not own primary synchronous API contracts (owned by `tiamat`).
+- Coordinates with `yeti` when async workflows depend on telemetry-derived state.
+
+## Interfaces
+
+- Consumes queued events/commands from backend workflows.
+- Dispatches side effects to communication channels and third-party systems.
+- Writes job outcomes and integration statuses to persistent stores.
+
+## Runtime and operations
+
+- Worker runtime prioritizes reliability over request latency.
+- Schedules, queue depth, and retry policies are core operational controls.
+- Monitoring focus: job lag, retry counts, dead-letter rates, and notification delivery outcomes.
+
+## Failure and edge cases
 
 - Expand this page with concrete job groups, schedules/triggers, and retry/error behavior.
+- External provider failures should trigger bounded retries and clear operator-visible status.
+- Idempotency is required for high-impact workflows such as top-ups and billing side effects.

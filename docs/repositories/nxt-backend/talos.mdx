@@ -13,7 +13,26 @@ title: talos
 - Vendor-specific meter integration behavior.
 - Support for CALIN meter APIs (v1 and v2).
 
-## Notes
+## Ownership boundaries
+
+- Owns provisioning workflows and hardware enrollment state transitions.
+- Does not own broad operator API surfaces beyond provisioning needs.
+- Coordinates with `tiamat` for user-facing orchestration and with shared libraries for reusable validation logic.
+
+## Interfaces
+
+- Exposes provisioning-specific APIs/tasks to other backend components.
+- Integrates with vendor APIs and device-specific protocols.
+- Persists provisioning outcomes and metadata in platform data stores.
+
+## Runtime and operations
+
+- Typically event-driven or command-driven from operational workflows.
+- Operational focus is idempotency, retry behavior, and deterministic provisioning status.
+- Monitoring focus: provisioning success rate, vendor API latency/failures, duplicate registration attempts.
+
+## Failure and edge cases
 
 - Designed to support additional meter vendors over time.
-- Expand this page with provisioning sequence, validation rules, and failure handling.
+- Vendor API drift and intermittent connectivity must not corrupt hardware lifecycle state.
+- TODO: add step-by-step provisioning sequence with validation checkpoints.

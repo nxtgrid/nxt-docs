@@ -14,6 +14,28 @@ title: yeti
 - Grid diagnostics and live digital twin state updates.
 - Exchange-rate snapshot collection.
 
-## Notes
+## Ownership boundaries
+
+- Owns telemetry ingestion, aggregation intervals, and time-series outputs.
+- Does not own transactional business workflows unrelated to telemetry.
+- Shares derived data with other services while preserving Timescale-first processing patterns.
+
+## Interfaces
+
+- Consumes device telemetry and related measurement streams.
+- Produces snapshots and aggregates consumed by monitoring/analytics workflows.
+- Writes high-frequency data to TimescaleDB and exposes derived outputs to platform services.
+
+## Runtime and operations
+
+- Interval-based collectors and aggregators run continuously at different cadences.
+- Data correctness depends on clock alignment, ingestion continuity, and retention policies.
+- Monitoring focus: ingestion lag, missing snapshots, processing backlog, and storage growth.
+
+## Failure and edge cases
+
+- Telemetry gaps should be visible and recoverable without silent data corruption.
+- Backfills/reprocessing must avoid duplicate aggregates where possible.
+- TODO: add explicit retention and reprocessing runbook references.
 
 - Expand this page with concrete collection schedules, retention strategy, and downstream consumers.

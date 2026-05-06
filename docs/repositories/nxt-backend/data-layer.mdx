@@ -6,15 +6,32 @@ title: data-layer
 
 The `nxt-backend` monorepo uses a mixed data architecture for operational and time-series workloads.
 
+## Data ownership model
+
+- Supabase/PostgreSQL is the transactional system of record (users, organizations, billing entities, operational state).
+- Supabase Auth owns authentication and identity concerns.
+- TimescaleDB owns high-volume telemetry, snapshots, and time-series analytics paths.
+
 ## Key areas
 
-- `supabase/` for schema migrations and platform data workflows.
-- PostgreSQL/Supabase for primary transactional data.
-- TimescaleDB-oriented paths for telemetry/time-series use cases.
-- Supabase Auth for authentication and identity flows.
+- `supabase/` for schema migrations and platform relational-data workflows.
+- TimescaleDB-oriented paths for telemetry ingestion, aggregation, and query access.
+- Shared data-access code in `libs/timeseries` and related app-level modules.
 
 ## Notes
 
 - TypeORM is used intentionally for TimescaleDB access.
 - For the primary Supabase Postgres database, migration away from legacy TypeORM usage is in progress.
-- Expand this page with schema ownership, migration flow, and environment-specific runbooks.
+
+## Migration and change flow
+
+1. Classify the change as transactional, time-series, or both.
+2. Apply schema evolution in the owning path (`supabase/` vs time-series migration path).
+3. Update app/service logic in owning components (`tiamat`, `talos`, `loch`, `yeti`).
+4. Validate integration behavior where transactional state and telemetry-derived state intersect.
+
+## Operational guidance
+
+- Keep transactional and telemetry access patterns separate unless a clear join strategy is defined.
+- Document retention/backfill rules for time-series data before major model changes.
+- TODO: add environment-specific migration runbook links and rollback expectations.

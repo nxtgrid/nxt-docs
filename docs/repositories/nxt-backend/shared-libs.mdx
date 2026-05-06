@@ -12,6 +12,22 @@ Shared libraries provide reusable modules across `nxt-backend` applications.
 - `libs/helpers` - utility helpers and shared TypeScript functions.
 - `libs/timeseries` - TimescaleDB integration utilities and shared query/connection concerns.
 
-## Notes
+## Boundary rules
+
+- Shared libraries should contain cross-app capabilities, not single-app business logic.
+- Domain behavior owned by one app stays in that app unless there is proven reuse.
+- Library changes should include impact checks for all known consumers.
+
+## Usage guidance
+
+- `libs/core`: auth, common module wiring, and cross-cutting infrastructure concerns.
+- `libs/helpers`: pure utilities and common helper patterns with minimal side effects.
+- `libs/timeseries`: shared access patterns for time-series ingestion/query concerns.
+
+## Change management
+
+- Prefer additive changes to avoid breaking multiple apps.
+- Track coupling risks when shared interfaces are changed.
+- TODO: add app-to-lib dependency matrix once extracted from source imports.
 
 - Expand this page with dependency boundaries and import conventions between apps and libs.

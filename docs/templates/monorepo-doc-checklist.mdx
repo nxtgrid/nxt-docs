@@ -4,14 +4,19 @@ title: Monorepo Doc Checklist
 
 # Monorepo Documentation Checklist
 
-Use this checklist for repositories with multiple deployable components (for example `nxt-backend`).
+Use this checklist for repositories with multiple deployable components (for example `nxt-backend`). This is the standard for "standard-compliant" monorepo pages.
 
 ## 1) Parent repository page
 
 - [ ] Clear purpose statement and domain scope.
+- [ ] Explicit in-scope/out-of-scope boundaries.
 - [ ] Monorepo structure summary (apps/libs/data areas).
 - [ ] Link list to all component subpages.
+- [ ] App boundary map (who owns what, who does not).
+- [ ] Data architecture split (transactional store vs time-series store).
 - [ ] High-level integration map (upstream/downstream systems).
+- [ ] Runtime/deploy model (API, workers, schedulers, collectors as applicable).
+- [ ] "How changes flow through the monorepo" section.
 - [ ] Status section with known documentation gaps.
 
 ## 2) Component subpages (repeat per app/service)
@@ -20,15 +25,25 @@ Use this checklist for repositories with multiple deployable components (for exa
 - [ ] Responsibilities section with concrete ownership boundaries.
 - [ ] Interfaces section (APIs/events/messages consumed and exposed).
 - [ ] Operational behavior (jobs, schedules, runtime expectations).
-- [ ] Failure/edge-case notes or TODOs if still unknown.
+- [ ] Failure/edge-case notes and degraded-mode behavior.
+- [ ] Monitoring focus (what to watch when this component fails).
+- [ ] Explicit TODO markers for unknown internals, not silent omissions.
 
 ## 3) Shared building blocks
 
 - [ ] Shared libraries page with boundaries and usage guidance.
 - [ ] Data layer page (datastores, auth model, migration flow).
 - [ ] External integrations grouped by domain (payments, IoT, notifications, etc.).
+- [ ] Clear ownership rule for shared code vs app-local domain logic.
 
-## 4) Quality gates before merge
+## 4) Diagram and depth conventions
+
+- [ ] If diagrams are used, include one system-context view and one change-flow view.
+- [ ] Diagrams must show component boundaries and external dependencies clearly.
+- [ ] Text must still stand on its own when diagrams are absent/outdated.
+- [ ] Depth is enough when an engineer can identify ownership, data path, and operational impact before opening source code.
+
+## 5) Quality gates before merge
 
 - [ ] New pages are linked from parent and sidebar.
 - [ ] Naming and ordering conventions are preserved.

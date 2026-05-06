@@ -14,7 +14,26 @@ title: tiamat
 - Payment workflows (orders, wallets, payouts, Flutterwave integration).
 - Organization/user administration for multi-tenant operation.
 
-## Notes
+## Ownership boundaries
+
+- Owns synchronous API contracts and request-time orchestration.
+- Does not own long-running automation; delegates async workflows to `loch`.
+- Consumes shared modules for auth, cross-cutting guards, and utility behavior.
+
+## Interfaces
+
+- Exposes REST and WebSocket interfaces for operator and platform clients.
+- Consumes metering/device integrations and payment gateways through service modules.
+- Produces events/tasks consumed by async processors where needed.
+
+## Runtime and operations
+
+- Designed for low-latency request/response workflows.
+- Runtime health depends on upstream data stores and external integration availability.
+- Monitoring focus: API latency/error rates, auth failures, and integration call failure trends.
+
+## Failure and edge cases
 
 - Also covers integrations such as SendGrid, Africa's Talking, Telegram, USSD, EpiCollect, and ChirpStack.
-- Expand this page with endpoint groups and module boundaries from source code.
+- External provider outages should degrade gracefully without broad platform unavailability.
+- TODO: add endpoint-group ownership map from source modules.

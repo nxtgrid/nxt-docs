@@ -7,39 +7,71 @@ sidebar_position: 1
 
 ## Purpose
 
-`nxt-backend` is the core backend platform for the NXT suite. It supports mini-grid operations across payments, monitoring, user management, and prepaid metering workflows.
+`nxt-backend` is the core backend monorepo for the NXT suite. It centralizes operational APIs, provisioning services, background orchestration, and telemetry processing used across mini-grid operations.
 
 ## Scope
 
-- Core business logic and APIs for platform operations.
-- Integrations needed by operator apps and customer-facing applications.
-- Metering and payment-related backend workflows.
+- Multi-service backend architecture for operations, hardware lifecycle, payments, and telemetry.
+- Shared libraries and data-access primitives used by all backend services.
+- Integrations with communication, payment, IoT, and automation systems.
+
+Out of scope:
+
+- Frontend product UX concerns and client-side orchestration.
+- Documentation of every endpoint-level contract (tracked in source APIs/specs).
 
 ## Key components
 
-- Apps: [tiamat](./nxt-backend/tiamat), [talos](./nxt-backend/talos), [loch](./nxt-backend/loch), [yeti](./nxt-backend/yeti)
-- Shared libraries: [shared-libs](./nxt-backend/shared-libs)
-- Data and persistence: [data-layer](./nxt-backend/data-layer)
+- Core apps:
+  - [tiamat](./nxt-backend/tiamat): primary synchronous API surface.
+  - [talos](./nxt-backend/talos): provisioning and meter onboarding.
+  - [loch](./nxt-backend/loch): scheduled and asynchronous processing.
+  - [yeti](./nxt-backend/yeti): telemetry collection and aggregation.
+- Shared modules: [shared-libs](./nxt-backend/shared-libs)
+- Persistence strategy: [data-layer](./nxt-backend/data-layer)
+
+## Monorepo boundary map
+
+- `tiamat` owns request/response operations and user-facing backend APIs.
+- `talos` owns meter registration and provisioning lifecycle.
+- `loch` owns queue/schedule driven workflows and downstream automation.
+- `yeti` owns high-frequency telemetry snapshots and aggregates.
+- Shared libraries provide reusable cross-cutting capabilities; app-specific domain logic remains in each app.
+
+## Data architecture (Supabase vs TimescaleDB)
+
+- Supabase/PostgreSQL is the system of record for transactional platform data.
+- Supabase Auth provides identity and auth flows across backend services.
+- TimescaleDB is optimized for time-series telemetry ingestion, snapshots, and analytics.
+- Operational write paths should prefer transactional stores; high-frequency telemetry should prefer TimescaleDB paths.
+
+## Integration map
+
+- Payments: order/payout and wallet flows (for example Flutterwave-related operations).
+- IoT/LoRaWAN and device ecosystem: meter/device events and provisioning dependencies.
+- Notifications: email/SMS/Telegram dispatch and alerting workflows.
+- Automation and external orchestration: integrations such as Make.com and related third-party feeds.
+
+## Runtime and deployment model
+
+- Services are independently runnable/deployable applications within one monorepo.
+- Runtime behavior splits across API-driven workloads, schedule/queue jobs, and telemetry collectors.
+- Environment-specific deployment, observability, and SLO/SLA definitions should be sourced from platform runbooks.
+
+## How changes flow through the monorepo
+
+1. A feature/change starts in an owning app domain (`tiamat`, `talos`, `loch`, or `yeti`).
+2. Shared abstractions are added or updated in `shared-libs` only when reused by multiple apps.
+3. Data-impacting changes align with `data-layer` ownership (transactional vs time-series).
+4. Integration points are validated for both synchronous API behavior and async side effects.
+5. Operational checks confirm schedule/queue behavior, telemetry correctness, and notification paths.
 
 ## Setup and run
 
 - Repository: [github.com/nxtgrid/nxt-backend](https://github.com/nxtgrid/nxt-backend)
-- Local setup details should be taken from the repository README and developer docs.
-
-## APIs and interfaces
-
-- Primary internal/external API surface for other NXT applications.
-- Contract details should be documented from source OpenAPI/spec files if available.
-
-## Integrations and dependencies
-
-- Consumed by frontend/operator applications in the NXT suite.
-- May integrate with metering infrastructure, payment providers, and supporting backend services.
-
-## Operations notes
-
-- Production deployment and monitoring practices should be documented from the repository and platform runbooks.
+- Follow source repository onboarding/runbooks for local setup, environment variables, and service startup.
 
 ## Status
 
-- This page is the initial baseline and should be expanded with concrete architecture, setup steps, and API references from the source repository.
+- This page now serves as the monorepo reference baseline for NXT documentation standards.
+- Remaining TODO: add links to source-owned diagrams/contracts once stabilized in `nxt-backend`.
