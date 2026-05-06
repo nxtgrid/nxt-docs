@@ -4,6 +4,15 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
+const deployTarget = process.env.DOCS_DEPLOY_TARGET ?? 'netlify';
+
+const siteUrl =
+  deployTarget === 'gh-pages'
+    ? 'https://nxtgrid.github.io'
+    : 'https://docs.nxtgrid.co';
+
+const siteBaseUrl = deployTarget === 'gh-pages' ? '/nxt-docs/' : '/';
+
 const config: Config = {
   title: 'NXT Docs',
   tagline: 'Unified documentation for NXT open-source software',
@@ -15,10 +24,10 @@ const config: Config = {
   },
 
   // Set the production url of your site here
-  url: 'https://docs.nxtgrid.co',
+  url: siteUrl,
   // Set the /<baseUrl>/ pathname under which your site is served
   // For Netlify/custom domain root hosting, keep this as '/'
-  baseUrl: '/',
+  baseUrl: siteBaseUrl,
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
