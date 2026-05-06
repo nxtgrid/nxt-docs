@@ -2,10 +2,10 @@ nxt-ai-assistant:
   repo: nxtgrid/nxt-ai-assistant
   branch: main
   standard: single-repo
-  doc_mode: bootstrap
-  status: baseline
-  last_synced_sha:
-  last_synced_at:
+  doc_mode: maintenance
+  status: standard-compliant
+  last_synced_sha: 5be2fdbb5f5edb908f8619afa201a390313d9a18
+  last_synced_at: 2026-05-06
 
 nxt-backend:
   repo: nxtgrid/nxt-backend

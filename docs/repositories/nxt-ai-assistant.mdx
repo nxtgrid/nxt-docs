@@ -6,24 +6,75 @@ title: nxt-ai-assistant
 
 ## Purpose
 
-`nxt-ai-assistant` orchestrates AI chat behavior with dynamic instructions, retrieval, and tool integrations.
+`nxt-ai-assistant` (Anansi) is a production AI orchestration platform for NXT support and operations conversations. It combines Gemini-based chat orchestration, role-aware instruction management, RAG ingestion/retrieval, and MCP-backed tool execution in one deployable system.
 
 ## Scope
 
-- Chat orchestration and prompt/instruction handling.
-- Retrieval-augmented responses and external tool connectivity.
+- In scope:
+  - Chat orchestration API with conversation state, tool-calling, and role-based behavior.
+  - MCP bridge/tool server layer for database, observability, and external workflow integrations.
+  - RAG ingestion pipeline for GitHub/Drive/Telegram-sourced knowledge.
+  - Admin/ops surfaces and shared code used across orchestrator, tools, and ingestion modules.
+- Out of scope:
+  - End-user app UI implementation outside exposed mini/admin app surfaces.
+  - Independent model hosting (delegates core model inference to Gemini APIs).
 
-## Key components
+## What this system does in production
 
-- Gemini-based orchestration pipeline.
-- Dynamic system instruction sourcing.
-- RAG knowledge retrieval and MCP tool integration.
+- Accepts user chat requests (API/Telegram-driven), builds role-aware context, and routes prompts to Gemini.
+- Resolves tools through the MCP bridge and executes permitted actions with API-key protection and sanitized errors.
+- Pulls dynamic support instructions and artifacts (Google Docs + database-backed sources) without redeploy for instruction changes.
+- Uses RAG ingestion/retrieval to ground responses in indexed operational knowledge.
+
+## Primary workflows
+
+- Chat workflow: user request -> instruction/context assembly -> Gemini response with optional tool execution -> final response.
+- Tool execution workflow: orchestrator requests tool call -> `mcp_servers/bridge.py` maps to server/tool registry -> returns sanitized result.
+- Knowledge refresh workflow: RAG ingestion jobs sync sources and update retrieval corpus used by orchestrator.
 
 ## Setup and run
 
 - Repository: [github.com/nxtgrid/nxt-ai-assistant](https://github.com/nxtgrid/nxt-ai-assistant)
-- Local setup and runtime instructions are maintained in the repository README.
+- Local multi-service dev runtime is provided via `docker-compose.yml`:
+  - `chat-orchestrator` (FastAPI on port 8000)
+  - `tools-service` (MCP bridge API on port 8080)
+- Python 3.11+ is required; project configuration and linting are defined in `pyproject.toml`.
+- Additional local orchestration scripts (`dev.sh`, `setup_shared.sh`) support development bootstrap.
 
-## Status
+## APIs and interfaces
 
-- Baseline page. Expand with architecture flow, retrieval sources, and tool call policies.
+- Chat orchestrator API is served from `chat_orchestrator/orchestrator/api/app.py` (includes health and chat-related endpoints, auth checks, scheduler hooks, and optional mini-app routes).
+- MCP bridge API (`mcp_servers/bridge.py`) exposes:
+  - server discovery
+  - tool listing
+  - tool execution endpoints
+  - Gemini function-format endpoint wrappers
+- Service-to-service auth is API-key based (`X-API-Key` / Telegram secret header path in orchestrator, API key header in tools bridge).
+
+## Integrations and dependencies
+
+- **Model provider:** Google Gemini APIs.
+- **Instruction/knowledge sources:** Google Docs + database artifacts + RAG indexed sources.
+- **Data layer:** Supabase/Postgres usage for chat state, artifacts, and auth context.
+- **Tooling layer:** MCP server registry and tool definitions (`mcp_servers/server_registry.py`, `tool_definitions.json`).
+- **Deployment model:** containerized multi-service runtime via Docker Compose and platform deployment descriptors.
+
+## Operations notes
+
+- This repo behaves as a multi-component platform (orchestrator + tools + RAG + shared libraries) rather than a single-process microservice.
+- Background scheduling is embedded in the orchestrator service (metrics sync, ingestion triggers, periodic tasks).
+- Key failure modes to check first:
+  - missing API keys/secrets for Gemini or tool bridge authentication,
+  - unavailable tools service causing orchestrator tool-call failures,
+  - stale or inaccessible instruction docs leading to degraded response quality,
+  - RAG pipeline/indexing drift reducing retrieval relevance.
+
+## Source of truth
+
+- Repository: [github.com/nxtgrid/nxt-ai-assistant](https://github.com/nxtgrid/nxt-ai-assistant)
+- Platform overview and architecture: `README.md`
+- Orchestrator API/runtime: `chat_orchestrator/orchestrator/api/app.py`
+- MCP bridge/tool execution: `mcp_servers/bridge.py`, `mcp_servers/server_registry.py`
+- RAG subsystem: `rag_pipeline/` and `rag_pipeline/README.md`
+- Shared cross-module code: `shared/README.md`
+- Local multi-service runtime: `docker-compose.yml`
