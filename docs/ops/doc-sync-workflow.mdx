@@ -1,0 +1,51 @@
+---
+title: Documentation Sync Workflow
+---
+
+# Documentation Sync Workflow
+
+Use this workflow to keep repository pages current with minimal manual effort.
+
+## Core concept
+
+Each repository has a lifecycle mode tracked in `docs/ops/repo-doc-sync-state.yaml`:
+
+- `bootstrap`: initial documentation creation or strict upgrade to standard.
+- `maintenance`: incremental updates driven by commit deltas since last sync.
+
+## Agent decision flow
+
+1. Read repository entry from `repo-doc-sync-state.yaml`.
+2. If the human prompt explicitly requests a mode, use that mode for this run.
+3. Otherwise use the tracked `doc_mode`.
+4. Execute:
+   - `bootstrap`: create/upgrade docs to checklist compliance.
+   - `maintenance`: diff `last_synced_sha..HEAD`, then update only impacted sections.
+5. After successful work, update state fields (`status`, `last_synced_sha`, `last_synced_at`, and `doc_mode` if promoted).
+
+## Promotion rule (`bootstrap` -> `maintenance`)
+
+Promote only when all are true:
+
+- Required checklist sections are present.
+- Sidebar and parent links are correct.
+- Content is practical/system-oriented.
+- `npm run build` passes.
+
+## Prompt override patterns
+
+Use explicit prompts when needed:
+
+- "Bootstrap `nxt-xyz` to standard."
+- "Run maintenance update for `nxt-xyz` from last synced SHA."
+
+Prompt override is temporary for that run; state should still be updated afterward.
+
+## Minimal required state fields
+
+- `repo`
+- `standard` (`monorepo` or `single-repo`)
+- `doc_mode` (`bootstrap` or `maintenance`)
+- `status` (`missing`, `baseline`, or `standard-compliant`)
+- `last_synced_sha` (nullable in bootstrap)
+- `last_synced_at`

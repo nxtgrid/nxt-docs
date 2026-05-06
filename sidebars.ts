@@ -39,15 +39,16 @@ const sidebars: SidebarsConfig = {
         'repositories/lorawan-cups-server',
       ],
     },
-    'contributing',
     'authors',
+    'contributing',
     {
       type: 'category',
-      label: 'Templates',
+      label: 'Documentation Toolkit',
       items: [
         'templates/repository-template',
         'templates/monorepo-doc-checklist',
         'templates/single-repo-doc-checklist',
+        'ops/doc-sync-workflow',
       ],
     },
   ],

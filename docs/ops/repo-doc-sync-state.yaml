@@ -1,0 +1,98 @@
+nxt-ai-assistant:
+  repo: nxtgrid/nxt-ai-assistant
+  branch: main
+  standard: single-repo
+  doc_mode: bootstrap
+  status: baseline
+  last_synced_sha:
+  last_synced_at:
+
+nxt-backend:
+  repo: nxtgrid/nxt-backend
+  branch: main
+  standard: monorepo
+  doc_mode: maintenance
+  status: standard-compliant
+  last_synced_sha: b7ca5faa06752865172acb614b0839ed9ffd07af
+  last_synced_at: 2026-05-06
+
+nxt-control-room:
+  repo: nxtgrid/nxt-control-room
+  branch: main
+  standard: single-repo
+  doc_mode: bootstrap
+  status: baseline
+  last_synced_sha:
+  last_synced_at:
+
+nxt-crm:
+  repo: nxtgrid/nxt-crm
+  branch: main
+  standard: single-repo
+  doc_mode: bootstrap
+  status: baseline
+  last_synced_sha:
+  last_synced_at:
+
+nxt-field-ops:
+  repo: nxtgrid/nxt-field-ops
+  branch: main
+  standard: single-repo
+  doc_mode: bootstrap
+  status: baseline
+  last_synced_sha:
+  last_synced_at:
+
+nxt-gis:
+  repo: nxtgrid/nxt-gis
+  branch: main
+  standard: single-repo
+  doc_mode: bootstrap
+  status: baseline
+  last_synced_sha:
+  last_synced_at:
+
+nxt-sts:
+  repo: nxtgrid/nxt-sts
+  branch: main
+  standard: single-repo
+  doc_mode: bootstrap
+  status: baseline
+  last_synced_sha:
+  last_synced_at:
+
+nxt-topup:
+  repo: nxtgrid/nxt-topup
+  branch: main
+  standard: single-repo
+  doc_mode: bootstrap
+  status: baseline
+  last_synced_sha:
+  last_synced_at:
+
+nxt-ui-components:
+  repo: nxtgrid/nxt-ui-components
+  branch: main
+  standard: single-repo
+  doc_mode: bootstrap
+  status: baseline
+  last_synced_sha:
+  last_synced_at:
+
+lorawan-cert-renewer:
+  repo: nxtgrid/lorawan-cert-renewer
+  branch: main
+  standard: single-repo
+  doc_mode: bootstrap
+  status: baseline
+  last_synced_sha:
+  last_synced_at:
+
+lorawan-cups-server:
+  repo: nxtgrid/lorawan-cups-server
+  branch: main
+  standard: single-repo
+  doc_mode: bootstrap
+  status: baseline
+  last_synced_sha:
+  last_synced_at:

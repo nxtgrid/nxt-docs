@@ -25,6 +25,12 @@ Documentation updates are handled in small, reviewable increments.
 - Prefer concise pages over long narrative docs.
 - Keep repository descriptions practical and up to date.
 - Update this docs hub incrementally as source projects evolve.
-- Use the documentation checklists in `Templates`:
+- Use the documentation checklists in `Documentation Toolkit`:
   - `Monorepo Doc Checklist` for multi-component repositories.
   - `Single-Repo Doc Checklist` for one-app repositories.
+
+## Agent-assisted sync workflow
+
+- Use [`Documentation Sync Workflow`](/docs/ops/doc-sync-workflow) as the operating runbook.
+- Repository lifecycle and sync state are tracked in `docs/ops/repo-doc-sync-state.yaml`.
+- `bootstrap` mode is for initial/standardization passes; `maintenance` mode is for commit-delta updates from `last_synced_sha`.

@@ -38,3 +38,19 @@ This file defines how AI agents/models should collaborate in this repository, in
 - If uncertain, ask briefly and proceed incrementally.
 - Prefer reversible, low-risk edits over sweeping refactors.
 - Preserve existing user-approved direction unless the user asks to change it.
+
+## 6) Documentation lifecycle and sync workflow
+
+- Use `docs/ops/repo-doc-sync-state.yaml` as the source of truth for repository documentation mode and sync status.
+- Supported `doc_mode` values:
+  - `bootstrap`: create or upgrade repository docs to checklist-defined standard compliance.
+  - `maintenance`: update existing docs from source repository commit deltas since `last_synced_sha`.
+- If the human gives an explicit mode in the prompt, follow the prompt mode for that run and then update state if appropriate.
+- For `bootstrap` mode:
+  - Prioritize structure, ownership boundaries, interfaces, runtime behavior, and integration coverage.
+  - Promote to `maintenance` only after checklist quality gates and docs build pass.
+- For `maintenance` mode:
+  - Compare `last_synced_sha..HEAD` in the source repository.
+  - Update only affected sections and avoid unrelated rewrites.
+  - Advance `last_synced_sha` and `last_synced_at` after successful update.
+- If `last_synced_sha` is missing in `maintenance`, stop and request clarification or set a baseline SHA before proceeding.
