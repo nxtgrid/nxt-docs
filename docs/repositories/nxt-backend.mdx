@@ -7,71 +7,79 @@ sidebar_position: 1
 
 ## Purpose
 
-`nxt-backend` is the core backend monorepo for the NXT suite. It centralizes operational APIs, provisioning services, background orchestration, and telemetry processing used across mini-grid operations.
+`nxt-backend` is the central backend monorepo for NXT mini-grid operations. It combines synchronous operations APIs, meter provisioning, background automation, and telemetry/time-series processing into one Nx-managed platform.
 
 ## Scope
 
-- Multi-service backend architecture for operations, hardware lifecycle, payments, and telemetry.
-- Shared libraries and data-access primitives used by all backend services.
-- Integrations with communication, payment, IoT, and automation systems.
+- In scope:
+  - Four deployable backend services: `tiamat`, `talos`, `loch`, `yeti`.
+  - Shared backend libraries (`libs/core`, `libs/helpers`, `libs/timeseries`).
+  - Primary relational data workflows in Supabase/PostgreSQL plus time-series workloads in TimescaleDB.
+  - Operational integrations (payments, notifications, LoRaWAN, MQTT/Victron, forecast/weather APIs).
 
 Out of scope:
 
-- Frontend product UX concerns and client-side orchestration.
-- Documentation of every endpoint-level contract (tracked in source APIs/specs).
+- Frontend product UX orchestration and app-side routing.
+- Component-level endpoint payload definitions beyond source app docs and code contracts.
 
 ## Key components
 
-- Core apps:
-  - [tiamat](./nxt-backend/tiamat): primary synchronous API surface.
-  - [talos](./nxt-backend/talos): provisioning and meter onboarding.
-  - [loch](./nxt-backend/loch): scheduled and asynchronous processing.
-  - [yeti](./nxt-backend/yeti): telemetry collection and aggregation.
-- Shared modules: [shared-libs](./nxt-backend/shared-libs)
-- Persistence strategy: [data-layer](./nxt-backend/data-layer)
+- Apps:
+  - [tiamat](./nxt-backend/tiamat): primary REST/WebSocket operations API.
+  - [talos](./nxt-backend/talos): meter provisioning and hardware import workflows.
+  - [loch](./nxt-backend/loch): cron jobs, async integrations, notification dispatch.
+  - [yeti](./nxt-backend/yeti): periodic telemetry snapshots and forecasting pipelines.
+- Shared architecture:
+  - [shared-libs](./nxt-backend/shared-libs)
+  - [data-layer](./nxt-backend/data-layer)
 
 ## Monorepo boundary map
 
-- `tiamat` owns request/response operations and user-facing backend APIs.
-- `talos` owns meter registration and provisioning lifecycle.
-- `loch` owns queue/schedule driven workflows and downstream automation.
-- `yeti` owns high-frequency telemetry snapshots and aggregates.
-- Shared libraries provide reusable cross-cutting capabilities; app-specific domain logic remains in each app.
+- `tiamat` owns synchronous API contracts for operations, customers, payments, meters, and real-time frontend updates.
+- `talos` owns provisioning execution against hardware/vendor systems (especially CALIN registration paths).
+- `loch` owns scheduled/event-driven side effects (notifications, payout automation, EpiCollect imports, MQTT-driven jobs).
+- `yeti` owns time-series collection, aggregation, forecasting, and diagnostics snapshots.
+- `libs/*` own cross-cutting backend primitives; app-specific business behavior remains app-local.
 
 ## Data architecture (Supabase vs TimescaleDB)
 
-- Supabase/PostgreSQL is the system of record for transactional platform data.
-- Supabase Auth provides identity and auth flows across backend services.
-- TimescaleDB is optimized for time-series telemetry ingestion, snapshots, and analytics.
-- Operational write paths should prefer transactional stores; high-frequency telemetry should prefer TimescaleDB paths.
+- Supabase/PostgreSQL is the transactional source of truth (accounts, grids, wallets, orders, operational entities).
+- Supabase Auth underpins authentication/identity for user and service access patterns.
+- TimescaleDB stores high-frequency telemetry and derived snapshots across meter/grid/MPPT/router/DCU dimensions.
+- Practical split:
+  - operational commands + business state -> relational store
+  - periodic measurements + forecast/diagnostic series -> TimescaleDB
 
 ## Integration map
 
-- Payments: order/payout and wallet flows (for example Flutterwave-related operations).
-- IoT/LoRaWAN and device ecosystem: meter/device events and provisioning dependencies.
-- Notifications: email/SMS/Telegram dispatch and alerting workflows.
-- Automation and external orchestration: integrations such as Make.com and related third-party feeds.
+- Payments and finance: Flutterwave order/payment paths, payout automation, exchange-rate feeds.
+- Comms and notifications: SendGrid, Africa's Talking, Telegram/Flow XO, Make.com scenario triggers.
+- Grid/IoT stack: CALIN APIs, ChirpStack LoRaWAN webhooks, Victron APIs/MQTT, ZeroTier node sync.
+- External data providers: Solcast forecasts, weather/sunrise inputs, EpiCollect field data ingestion.
 
 ## Runtime and deployment model
 
-- Services are independently runnable/deployable applications within one monorepo.
-- Runtime behavior splits across API-driven workloads, schedule/queue jobs, and telemetry collectors.
-- Environment-specific deployment, observability, and SLO/SLA definitions should be sourced from platform runbooks.
+- Nx monorepo builds/runs each app independently (`nx serve/build <app>`), enabling separate runtime scaling.
+- Runtime archetypes:
+  - API-heavy synchronous service (`tiamat`)
+  - provisioning worker/API (`talos`)
+  - cron/automation worker with selective endpoints (`loch`)
+  - telemetry snapshot/diagnostics worker with selective endpoints (`yeti`)
+- Shared Node/Nest stack + environment-driven integration credentials across services.
 
 ## How changes flow through the monorepo
 
-1. A feature/change starts in an owning app domain (`tiamat`, `talos`, `loch`, or `yeti`).
-2. Shared abstractions are added or updated in `shared-libs` only when reused by multiple apps.
-3. Data-impacting changes align with `data-layer` ownership (transactional vs time-series).
-4. Integration points are validated for both synchronous API behavior and async side effects.
-5. Operational checks confirm schedule/queue behavior, telemetry correctness, and notification paths.
+1. Identify owning runtime path first: request/response (`tiamat`), provisioning (`talos`), async jobs (`loch`), or telemetry (`yeti`).
+2. If multiple apps need shared behavior, promote primitives into `libs/*` with compatibility checks for existing consumers.
+3. Apply schema/storage changes in correct data plane (`supabase/` migrations vs timeseries-oriented paths).
+4. Validate both direct behavior and side effects:
+   - API contract and auth paths
+   - scheduled job outcomes
+   - integration webhooks/callbacks
+   - telemetry snapshot integrity
+5. Confirm cross-app dependencies (e.g., Talos -> Tiamat callbacks, Loch/Yeti -> Tiamat data consumers) before release.
 
 ## Setup and run
 
 - Repository: [github.com/nxtgrid/nxt-backend](https://github.com/nxtgrid/nxt-backend)
 - Follow source repository onboarding/runbooks for local setup, environment variables, and service startup.
-
-## Status
-
-- This page now serves as the monorepo reference baseline for NXT documentation standards.
-- Remaining TODO: add links to source-owned diagrams/contracts once stabilized in `nxt-backend`.

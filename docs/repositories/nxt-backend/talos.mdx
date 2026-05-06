@@ -21,9 +21,11 @@ title: talos
 
 ## Interfaces
 
-- Exposes provisioning-specific APIs/tasks to other backend components.
-- Integrates with vendor APIs and device-specific protocols.
-- Persists provisioning outcomes and metadata in platform data stores.
+- Exposes provisioning endpoints/jobs and reports outcomes back to Tiamat (`TIAMAT_API` integration path).
+- Uses two CALIN integration modes:
+  - v1 browser automation (Puppeteer against CALIN web UI),
+  - v2 API integration (REST-based).
+- Includes metering hardware import processing plus debug screenshot endpoint for Puppeteer troubleshooting.
 
 ## Runtime and operations
 
@@ -34,5 +36,12 @@ title: talos
 ## Failure and edge cases
 
 - Designed to support additional meter vendors over time.
-- Vendor API drift and intermittent connectivity must not corrupt hardware lifecycle state.
-- TODO: add step-by-step provisioning sequence with validation checkpoints.
+- CALIN v1 UI automation is brittle by nature (captcha, element timing, EasyUI state); screenshot/debug artifacts are critical for diagnosis.
+- Session concurrency limits and retry behavior must prevent overload while avoiding stuck provisioning queues.
+- Upstream/downstream API mismatch in Talos-Tiamat callbacks can desynchronize provisioning state from operator-visible records.
+
+## Source of truth
+
+- App-level provisioning flow details: `apps/talos/README.md`
+- Build/serve contract: `apps/talos/project.json`
+- Runtime configuration contract: `apps/talos/.env.example`

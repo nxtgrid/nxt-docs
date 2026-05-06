@@ -4,13 +4,21 @@ title: shared-libs
 
 # Shared libraries
 
-Shared libraries provide reusable modules across `nxt-backend` applications.
+`nxt-backend` uses three shared libraries to keep cross-app concerns consistent while preserving app-level ownership of business behavior.
 
 ## Libraries
 
-- `libs/core` - shared NestJS modules and cross-cutting concerns (for example auth guards and alerting).
-- `libs/helpers` - utility helpers and shared TypeScript functions.
-- `libs/timeseries` - TimescaleDB integration utilities and shared query/connection concerns.
+- `libs/core`: shared NestJS domain/infrastructure modules used by all apps.
+  - Core database access (`CoreTypeOrmModule`, `CorePgModule`, `GlobalSupabaseModule`).
+  - Shared clients for CALIN, Victron, Solcast, Make, SendGrid.
+  - Shared entities/services for accounts, grids, meters, payouts, routers, and related domain records.
+- `libs/helpers`: framework-agnostic TypeScript helper functions plus a small NestJS pipe set.
+  - Includes shared array/number/query/time/promise helpers and provider-specific utility wrappers.
+  - `query-helpers` supports loading raw SQL files at runtime from app query folders.
+- `libs/timeseries`: named TypeORM data source and entity layer for TimescaleDB.
+  - Exposes `TimeseriesTypeOrmModule` with `timescale` connection.
+  - Defines snapshot entities (meter/grid/mppt/router/DCU/order/exchange/business snapshots).
+  - Contains dedicated Timescale migration tooling (`libs/timeseries/migration`, `ormconfig.ts`).
 
 ## Boundary rules
 
@@ -18,16 +26,23 @@ Shared libraries provide reusable modules across `nxt-backend` applications.
 - Domain behavior owned by one app stays in that app unless there is proven reuse.
 - Library changes should include impact checks for all known consumers.
 
-## Usage guidance
+## Usage guidance by component
 
-- `libs/core`: auth, common module wiring, and cross-cutting infrastructure concerns.
-- `libs/helpers`: pure utilities and common helper patterns with minimal side effects.
-- `libs/timeseries`: shared access patterns for time-series ingestion/query concerns.
+- API and workflow services (`tiamat`, `talos`, `loch`, `yeti`) import from `@core` for shared modules/services/entities.
+- Utility-only behavior should come from `@helpers`; avoid embedding framework/service state in helper modules.
+- Any app writing/reading Timescale entities should use `@timeseries` for consistent schema mapping.
 
 ## Change management
 
 - Prefer additive changes to avoid breaking multiple apps.
 - Track coupling risks when shared interfaces are changed.
-- TODO: add app-to-lib dependency matrix once extracted from source imports.
+- For risky shared changes, verify at minimum:
+  - app build/serve across affected services,
+  - core module bootstrapping,
+  - cross-app data/entity compatibility.
 
-- Expand this page with dependency boundaries and import conventions between apps and libs.
+## Source of truth
+
+- `libs/core/README.md`
+- `libs/helpers/README.md`
+- `libs/timeseries/README.md`

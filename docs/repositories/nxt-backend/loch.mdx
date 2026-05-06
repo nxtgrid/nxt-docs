@@ -22,9 +22,9 @@ title: loch
 
 ## Interfaces
 
-- Consumes queued events/commands from backend workflows.
-- Dispatches side effects to communication channels and third-party systems.
-- Writes job outcomes and integration statuses to persistent stores.
+- Exposes selective operational endpoints (for example EpiCollect ingestion, notification routes, `autopilot/test`, PD Hero trigger).
+- Pulls/patches against Tiamat APIs for payout/revenue/automation workflows.
+- Pushes side effects into comms channels and external workflow engines (Make.com, Flow XO, SendGrid, Africa's Talking, Telegram).
 
 ## Runtime and operations
 
@@ -34,6 +34,12 @@ title: loch
 
 ## Failure and edge cases
 
-- Expand this page with concrete job groups, schedules/triggers, and retry/error behavior.
-- External provider failures should trigger bounded retries and clear operator-visible status.
-- Idempotency is required for high-impact workflows such as top-ups and billing side effects.
+- Cron-driven flows are mostly production-gated by `NXT_ENV`; misconfigured environment can silently disable critical automation.
+- Multi-provider notification and automation paths require bounded retries and duplicate-protection for financial/operational side effects.
+- MQTT/Victron connectivity issues can degrade downstream automation quality; fallback behavior must avoid cascading failures.
+
+## Source of truth
+
+- App-level job/module inventory: `apps/loch/README.md`
+- Build/serve contract: `apps/loch/project.json`
+- Runtime configuration contract: `apps/loch/.env.example`

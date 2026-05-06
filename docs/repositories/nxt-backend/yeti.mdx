@@ -4,38 +4,42 @@ title: yeti
 
 # yeti
 
-`yeti` is the time-series data collector and aggregation service.
+`yeti` is the time-series collection and diagnostics service in the `nxt-backend` monorepo.
 
 ## Responsibilities
 
-- Periodic telemetry ingestion and snapshot writing to TimescaleDB.
-- Snapshot generation for meters, grids, MPPTs, routers, and DCUs across intervals (minute to day).
-- Forecasting pipelines (including solar irradiance inputs).
-- Grid diagnostics and live digital twin state updates.
-- Exchange-rate snapshot collection.
+- Runs periodic snapshot collectors for meter, grid, MPPT, router, and DCU state at mixed cadences.
+- Writes high-frequency and aggregated telemetry outputs to TimescaleDB for downstream analytics and operations.
+- Computes forecast and estimated-actual solar data (Solcast) plus business/diagnostic snapshots.
+- Maintains near-real-time grid digital twin updates via Victron MQTT.
+- Records operational reference streams such as exchange-rate snapshots.
 
 ## Ownership boundaries
 
-- Owns telemetry ingestion, aggregation intervals, and time-series outputs.
-- Does not own transactional business workflows unrelated to telemetry.
-- Shares derived data with other services while preserving Timescale-first processing patterns.
+- Owns telemetry collection schedules and time-series data products.
+- Does not own synchronous operational API workflows (owned by `tiamat`).
+- Shares derived data with other services while keeping telemetry write paths in time-series components.
 
 ## Interfaces
 
-- Consumes device telemetry and related measurement streams.
-- Produces snapshots and aggregates consumed by monitoring/analytics workflows.
-- Writes high-frequency data to TimescaleDB and exposes derived outputs to platform services.
+- Ingests provider data from Victron, CALIN, Solcast, ZeroTier, and exchange-rate APIs.
+- Exposes targeted ingestion/control endpoints (for example `device-data-sink/ingest`).
+- Publishes snapshot outputs consumed by monitoring, diagnostics, and business reporting flows.
 
 ## Runtime and operations
 
-- Interval-based collectors and aggregators run continuously at different cadences.
-- Data correctness depends on clock alignment, ingestion continuity, and retention policies.
-- Monitoring focus: ingestion lag, missing snapshots, processing backlog, and storage growth.
+- Mixed-interval cron execution: minute-level, 15-minute, hourly, and daily collectors in one service.
+- Production gating matters: cron jobs and MQTT digital twin behavior depend on environment configuration.
+- Monitoring focus: snapshot freshness, collector lag, provider API failure rates, and missing-series coverage.
 
 ## Failure and edge cases
 
-- Telemetry gaps should be visible and recoverable without silent data corruption.
-- Backfills/reprocessing must avoid duplicate aggregates where possible.
-- TODO: add explicit retention and reprocessing runbook references.
+- Provider outages should degrade into visible partial gaps, not silently incorrect aggregates.
+- Missed cadences can present as "stale but seemingly healthy" dashboards if freshness checks are weak.
+- Backfill/replay behavior must guard against duplicate inserts and inconsistent rollups.
 
-- Expand this page with concrete collection schedules, retention strategy, and downstream consumers.
+## Source of truth
+
+- App-level module/cadence inventory: `apps/yeti/README.md`
+- Build/serve contract: `apps/yeti/project.json`
+- Runtime configuration contract: `apps/yeti/.env.example`

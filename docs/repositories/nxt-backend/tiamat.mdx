@@ -22,9 +22,10 @@ title: tiamat
 
 ## Interfaces
 
-- Exposes REST and WebSocket interfaces for operator and platform clients.
-- Consumes metering/device integrations and payment gateways through service modules.
-- Produces events/tasks consumed by async processors where needed.
+- Exposes REST and Socket.IO surfaces used by operations dashboards and internal services.
+- Handles LoRaWAN webhook ingress (`chirpstack` module) into device-message pipelines.
+- Integrates with Talos/Yeti/Loch via internal APIs for provisioning, telemetry, and async processing handoff.
+- Large module surface includes accounts, agents, grids, meters, wallets, orders, payouts, notifications, Jira, Telegram, USSD, and analytics.
 
 ## Runtime and operations
 
@@ -34,6 +35,12 @@ title: tiamat
 
 ## Failure and edge cases
 
-- Also covers integrations such as SendGrid, Africa's Talking, Telegram, USSD, EpiCollect, and ChirpStack.
-- External provider outages should degrade gracefully without broad platform unavailability.
-- TODO: add endpoint-group ownership map from source modules.
+- External integration outages (Flutterwave, SendGrid, ChirpStack, Make, Flow XO) should degrade gracefully without full API collapse.
+- Device-message and meter-interaction flows must handle retry/reconciliation to avoid silent command loss.
+- Any auth/session misconfiguration (Supabase URL/keys/JWT secret) has platform-wide impact on dashboard access and machine-to-machine calls.
+
+## Source of truth
+
+- App-level architecture and module map: `apps/tiamat/README.md`
+- Build/serve contract: `apps/tiamat/project.json`
+- Runtime configuration contract: `apps/tiamat/.env.example`

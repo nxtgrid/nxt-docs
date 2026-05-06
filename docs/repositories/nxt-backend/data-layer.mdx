@@ -14,9 +14,17 @@ The `nxt-backend` monorepo uses a mixed data architecture for operational and ti
 
 ## Key areas
 
-- `supabase/` for schema migrations and platform relational-data workflows.
-- TimescaleDB-oriented paths for telemetry ingestion, aggregation, and query access.
-- Shared data-access code in `libs/timeseries` and related app-level modules.
+- `supabase/`
+  - `migrations/` for relational schema evolution.
+  - `functions/` for edge/runtime functions such as customer/order/meter-consumption related handlers.
+  - `config.toml` for local Supabase runtime configuration.
+- `libs/timeseries/`
+  - TypeORM-backed Timescale connection and snapshot entities.
+  - Dedicated migration path under `libs/timeseries/migration`.
+- App-level ownership:
+  - `tiamat`: transactional business state and operational APIs.
+  - `yeti`: telemetry and snapshot generation.
+  - `loch`: async automation that reads/writes both planes as needed.
 
 ## Notes
 
@@ -33,5 +41,13 @@ The `nxt-backend` monorepo uses a mixed data architecture for operational and ti
 ## Operational guidance
 
 - Keep transactional and telemetry access patterns separate unless a clear join strategy is defined.
-- Document retention/backfill rules for time-series data before major model changes.
-- TODO: add environment-specific migration runbook links and rollback expectations.
+- Time-series changes should define retention/backfill implications before rollout.
+- Validate freshness expectations for snapshot tables that feed operator-facing diagnostics.
+- For Supabase function changes, confirm JWT requirements and function entrypoint wiring remain consistent with `supabase/config.toml`.
+
+## Source of truth
+
+- `supabase/config.toml`
+- `supabase/migrations/`
+- `supabase/functions/`
+- `libs/timeseries/README.md`
