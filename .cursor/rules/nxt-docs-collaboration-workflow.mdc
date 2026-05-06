@@ -1,0 +1,12 @@
+---
+description: Follow AGENTS.md collaboration contract
+alwaysApply: true
+---
+
+# Follow AGENTS.md
+
+Use `AGENTS.md` in the repository root as the canonical, tool-agnostic collaboration contract.
+
+If this rule and `AGENTS.md` ever conflict, prefer `AGENTS.md`.
+
+This rule exists only to ensure Cursor-based agents load the same instructions as other tools/agents.
