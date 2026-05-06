@@ -7,6 +7,16 @@ The goal of this repository is to provide one consistent documentation home acro
 ## Live site
 
 - [docs.nxtgrid.co](http://docs.nxtgrid.co/)
+- [nxtgrid.github.io/nxt-docs](https://nxtgrid.github.io/nxt-docs/)
+
+## Deployment targets
+
+- Netlify remains the primary deployment target for `https://docs.nxtgrid.co`.
+- GitHub Pages is configured as a secondary deployment target at `https://nxtgrid.github.io/nxt-docs/`.
+- GitHub Pages deploys are handled by `.github/workflows/deploy-pages.yml`.
+- The Docusaurus config uses `DOCS_DEPLOY_TARGET` to switch site URL/base path:
+  - `netlify` -> `url=https://docs.nxtgrid.co`, `baseUrl=/`
+  - `gh-pages` -> `url=https://nxtgrid.github.io`, `baseUrl=/nxt-docs/`
 
 ## Project scope
 
@@ -31,10 +41,22 @@ npm start
 
 The development server runs with hot reload for docs and config changes.
 
+To simulate GitHub Pages locally:
+
+```bash
+DOCS_DEPLOY_TARGET=gh-pages npm start
+```
+
 ## Production build
 
 ```bash
 npm run build
+```
+
+To produce a GitHub Pages-compatible build locally:
+
+```bash
+DOCS_DEPLOY_TARGET=gh-pages npm run build
 ```
 
 ## How to add or update repository docs
