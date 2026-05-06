@@ -6,24 +6,73 @@ title: nxt-gis
 
 ## Purpose
 
-`nxt-gis` provides geospatial analysis services for infrastructure planning in the NXT ecosystem.
+`nxt-gis` is a backend geospatial analysis service that powers infrastructure-planning computations for NXT. It exposes FastAPI endpoints for building-footprint retrieval, pole-placement inference, and distribution-line generation.
 
 ## Scope
 
-- Spatial analysis workflows for planning and optimization.
-- APIs for geospatial computation and planning outputs.
+- In scope:
+  - Geospatial compute endpoints used during grid/site design workflows.
+  - Building data retrieval from multiple sources (stored Bing data, Google Earth Engine Open Buildings, OSM).
+  - Pole-coverage and line-layout inference based on geometric/graph algorithms.
+- Out of scope:
+  - Frontend map UX and operator UI workflows.
+  - Core billing/metering business processes outside planning/geospatial computation.
 
-## Key components
+## What this service does in production
 
-- FastAPI backend for geospatial endpoints.
-- Spatial algorithms for pole placement and line routing.
-- PostGIS-backed data and computation workflows.
+- Accepts planning polygons and returns building footprints in GeoJSON.
+- Suggests pole locations to cover selected points with configurable coverage algorithms.
+- Computes minimum-spanning-tree distribution lines between inferred/selected poles.
+- Serves as a backend dependency for planning tools in NXT frontend applications.
+
+## Primary workflows
+
+- Building retrieval workflow: call `/buildings` with outline + source + minimum area, receive connected/unconnected building features.
+- Pole inference workflow: call `/poles-by-coverage` with points + radius + algorithm (`GREEDY` or `KDTREE`) to generate candidate pole set.
+- Line design workflow: call `/distribution-lines-by-poles` with pole FeatureCollection to return MST-based line geometry.
 
 ## Setup and run
 
 - Repository: [github.com/nxtgrid/nxt-gis](https://github.com/nxtgrid/nxt-gis)
-- Local setup and runtime instructions are maintained in the repository README.
+- Local run (from source README):
+  - create/activate virtualenv
+  - `pip install -r requirements.txt`
+  - `uvicorn src.app:app --reload`
+- Production process uses Gunicorn + Uvicorn worker class (`Procfile`).
 
-## Status
+## APIs and interfaces
 
-- Baseline page. Expand with API examples, input/output schema notes, and data assumptions.
+- `GET /` returns service identity/health message.
+- `POST /buildings` validates request outline area and dispatches to one of three data sources:
+  - stored Bing maps in PostGIS
+  - Earth Engine Open Buildings
+  - OpenStreetMap Overpass API
+- `POST /poles-by-coverage` computes candidate poles using coverage algorithms in `src/services/poles.py`.
+- `POST /distribution-lines-by-poles` computes MST-based line graph using SciPy distance + sparse graph routines.
+- Request models and schema constraints are defined in `src/models.py`.
+
+## Integrations and dependencies
+
+- **Datastore:** PostgreSQL + PostGIS (geodata source and spatial query path).
+- **External geodata providers:** Google Earth Engine and OpenStreetMap Overpass.
+- **Python compute stack:** FastAPI, Shapely, SciPy, SQLModel/SQLAlchemy, earthengine-api.
+- **Consumers:** planning-oriented NXT frontend tools that need geospatial design outputs in GeoJSON.
+
+## Operations notes
+
+- CORS policy is environment-driven (`CORS_ALLOWED_ORIGINS` and optional regex).
+- `/buildings` enforces max outline area guardrail (`MAX_AREA`) to bound expensive requests.
+- Earth Engine is initialized at module load in the buildings service path.
+- Key failure modes to diagnose first:
+  - database connectivity or missing PostGIS extension for stored-building queries,
+  - Earth Engine credentials misconfiguration for open-buildings source,
+  - Overpass API errors/timeouts for OSM source.
+
+## Source of truth
+
+- Repository: [github.com/nxtgrid/nxt-gis](https://github.com/nxtgrid/nxt-gis)
+- Service entrypoints and routes: `src/app.py`
+- Request models/validation: `src/models.py`
+- Geospatial service logic: `src/services/buildings.py`, `src/services/poles.py`, `src/services/distribution_lines.py`
+- Runtime/deployment process: `Procfile`
+- Environment contract: `.env.example`

@@ -34,6 +34,7 @@ This file defines how AI agents/models should collaborate in this repository, in
   - frontend-heavy apps: route/UX/realtime behavior.
   - backend-only services: API/job/datastore/runtime behavior.
   - shared libraries: consumer contract, compatibility boundaries, and change-impact expectations.
+  - automation/ops utilities: execution flow, prerequisites, artifact outputs, and operational failure handling.
 - Keep repository ordering consistent:
   - `nxt-*` first, alphabetical
   - `lorawan-*` second, alphabetical

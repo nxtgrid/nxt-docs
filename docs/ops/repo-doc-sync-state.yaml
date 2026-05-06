@@ -47,19 +47,19 @@ nxt-gis:
   repo: nxtgrid/nxt-gis
   branch: main
   standard: single-repo
-  doc_mode: bootstrap
-  status: baseline
-  last_synced_sha:
-  last_synced_at:
+  doc_mode: maintenance
+  status: standard-compliant
+  last_synced_sha: cb59c3328fe082bda216949b56f568196d6ba864
+  last_synced_at: 2026-05-06
 
 nxt-sts:
   repo: nxtgrid/nxt-sts
   branch: main
   standard: single-repo
-  doc_mode: bootstrap
-  status: baseline
-  last_synced_sha:
-  last_synced_at:
+  doc_mode: maintenance
+  status: standard-compliant
+  last_synced_sha: 3d12f413cc5363ca208505e8872ffd08e6ff14af
+  last_synced_at: 2026-05-06
 
 nxt-topup:
   repo: nxtgrid/nxt-topup
@@ -83,16 +83,16 @@ lorawan-cert-renewer:
   repo: nxtgrid/lorawan-cert-renewer
   branch: main
   standard: single-repo
-  doc_mode: bootstrap
-  status: baseline
-  last_synced_sha:
-  last_synced_at:
+  doc_mode: maintenance
+  status: standard-compliant
+  last_synced_sha: 68823299d377b88047f008d4514e8a1fdaf2ec76
+  last_synced_at: 2026-05-06
 
 lorawan-cups-server:
   repo: nxtgrid/lorawan-cups-server
   branch: main
   standard: single-repo
-  doc_mode: bootstrap
-  status: baseline
-  last_synced_sha:
-  last_synced_at:
+  doc_mode: maintenance
+  status: standard-compliant
+  last_synced_sha: 4cf120e3b08cf305c408e6b2161f7f60072f6684
+  last_synced_at: 2026-05-06

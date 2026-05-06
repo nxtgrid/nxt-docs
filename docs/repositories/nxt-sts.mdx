@@ -6,24 +6,73 @@ title: nxt-sts
 
 ## Purpose
 
-`nxt-sts` provides STS prepayment token generation compliant with IEC 62055-41.
+`nxt-sts` is a Spring Boot microservice that issues prepaid metering tokens compliant with IEC 62055-41 (STS). It is used as a backend token-generation service for prepaid utility workflows.
 
 ## Scope
 
-- Token generation and validation workflows.
-- Service interfaces for prepaid utility metering integrations.
+- In scope:
+  - STS token issuance via HTTP endpoint for supported token classes.
+  - Decoder-key based token generation using the Standard Transfer Algorithm (STA/EA07).
+  - Mapping token-request payloads to token-generator implementations.
+- Out of scope:
+  - Customer payment UX and transaction orchestration (handled by other services/apps).
+  - Meter communication and post-issuance delivery channels.
 
-## Key components
+## What this service does in production
 
-- STS token generation logic.
-- API endpoints for issuing tokens.
-- Domain utilities around STS standard handling.
+- Accepts token-issue requests at `/token`.
+- Builds STS domain primitives (`TokenIdentifier`, `RandomNo`, `DecoderKey`, and type-specific payload fields).
+- Routes to generator implementations for supported token types and returns generated token numbers.
+- Exposes a lightweight API surface intended to be consumed by backend integration layers.
+
+## Primary workflows
+
+- Top-up token workflow: client submits `type=TOP_UP` with `kwh`, issue date, random number, and decoder key; service returns a generated 20-digit token.
+- Clear operation workflow: client submits `CLEAR_CREDIT` or `CLEAR_TAMPER`; service builds class-2 token structures and returns token.
+- Power-limit workflow: client submits `SET_POWER_LIMIT` with `powerLimit`; service generates corresponding class-2 control token.
 
 ## Setup and run
 
 - Repository: [github.com/nxtgrid/nxt-sts](https://github.com/nxtgrid/nxt-sts)
-- Local setup and run instructions are maintained in the repository README.
+- Build: `mvn clean install -DskipTests` (produces `target/jambu-1.0-SNAPSHOT.jar`).
+- Run locally: `java -jar target/jambu-1.0-SNAPSHOT.jar` (default port 8080).
+- Production process is configured for Gunicorn-equivalent Java path via Spring Boot JAR runtime and Docker image execution.
 
-## Status
+## APIs and interfaces
 
-- Baseline page. Expand with concrete endpoint contracts and integration examples.
+- `POST /token` is the primary service endpoint (implemented in `MyApplication`).
+- Request contract (`RequestData`) includes:
+  - `type` (`TOP_UP`, `CLEAR_CREDIT`, `CLEAR_TAMPER`, `SET_POWER_LIMIT`)
+  - `issueDate`
+  - `randomNumber`
+  - `decoderKey`
+  - `kwh` (for top-up)
+  - `powerLimit` (for set-power-limit)
+- Response contract returns generated token string as `{ "token": "<token-number>" }`.
+- Decoder key is converted from hex string into reversed byte array before token generation.
+
+## Integrations and dependencies
+
+- Core framework: Spring Boot 3.4 web stack.
+- Cryptographic/token stack: Bouncy Castle + STS token domain/generator implementation classes.
+- Time/date parsing: Joda-Time for request issue-date handling.
+- Optional/auxiliary dependencies present for Redis and Thrift-based integration paths.
+- Service lineage: derivative work from `NectarAPI/tokens-service` (documented in `NOTICE`).
+
+## Operations notes
+
+- Default service port is 8080 with runtime override support (`--server.port`).
+- Build artifact handling is explicit in `.gitignore` to keep the required JAR path available for deployment workflows.
+- Key failure modes to check first:
+  - invalid token type or missing type-specific fields (`kwh`/`powerLimit`),
+  - malformed decoder key causing conversion/generation failures,
+  - date format parsing failures for `issueDate`.
+
+## Source of truth
+
+- Repository: [github.com/nxtgrid/nxt-sts](https://github.com/nxtgrid/nxt-sts)
+- Endpoint/controller implementation: `src/main/java/co/nxtgrid/MyApplication.java`
+- Request payload model: `src/main/java/co/nxtgrid/RequestData.java`
+- Build/runtime dependencies: `pom.xml`
+- Container/runtime packaging: `Dockerfile` and `.gitignore`
+- Service behavior and token-type docs: `README.md`

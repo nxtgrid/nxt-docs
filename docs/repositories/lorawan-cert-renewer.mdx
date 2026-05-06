@@ -6,24 +6,71 @@ title: lorawan-cert-renewer
 
 ## Purpose
 
-`lorawan-cert-renewer` automates certificate renewal and credential bundle preparation for LoRaWAN services.
+`lorawan-cert-renewer` is an infrastructure automation utility that renews LoRaWAN TLS certificates and publishes fresh credential bundles used by the CUPS provisioning flow.
 
 ## Scope
 
-- Certificate renewal automation workflows.
-- Packaging and delivery of updated credential bundles.
+- In scope:
+  - Certificate/key generation and signing for CUPS and LNS endpoints.
+  - Deployment of renewed cert material to droplets behind DigitalOcean load balancers.
+  - Packaging and upload of `cups_cred.bin` and `tc_cred.bin` bundles to S3-compatible storage.
+- Out of scope:
+  - Running CUPS protocol endpoints directly (handled by `lorawan-cups-server`).
+  - Continuous scheduler/orchestrator runtime as a long-lived service.
 
-## Key components
+## What this utility does in production
 
-- Renewal scheduling/execution scripts.
-- Bundle generation for CUPS/LNS consumers.
-- Operational integration with LoRaWAN certificate lifecycle.
+- Executes two renewal flows: CUPS cert renewal and TC/LNS cert renewal.
+- Discovers droplet targets through DigitalOcean load balancer metadata.
+- Pushes updated cert/key files via SSH/SCP and restarts target services remotely.
+- Generates DER bundles and uploads them to object storage for downstream CUPS consumption.
+
+## Primary workflows
+
+- Full rotation workflow: run `index.sh` to execute both `cups-cert-renew.sh` and `tc-cert-renew.sh` sequentially.
+- CUPS renewal workflow: generate/sign CUPS cert, deploy to CUPS droplets, restart CUPS service, upload `cups_cred.bin`.
+- LNS/TC renewal workflow: generate/sign LNS cert, deploy to LNS droplets, restart ChirpStack/LNS service, upload `tc_cred.bin`.
 
 ## Setup and run
 
 - Repository: [github.com/nxtgrid/lorawan-cert-renewer](https://github.com/nxtgrid/lorawan-cert-renewer)
-- Local setup and operational instructions are maintained in the repository README.
+- Configure `.env` from `.env.example` with DigitalOcean, SSH, CA, and S3 credentials.
+- Ensure required tooling exists on execution host: OpenSSL, curl, jq, AWS CLI, SSH/SCP.
+- Execute: `bash index.sh` (or run individual renewal scripts directly when needed).
 
-## Status
+## Interfaces and operational contracts
 
-- Baseline page. Expand with rotation intervals, secrets handling, and deployment integration details.
+- Input contract is environment-driven (`DO_API_TOKEN`, load balancer IDs, CA paths, server directories, Spaces profile/bucket).
+- Script-level interfaces:
+  - `index.sh`: orchestration entrypoint.
+  - `cups-cert-renew.sh`: CUPS flow.
+  - `tc-cert-renew.sh`: LNS/TC flow.
+- Output artifacts:
+  - `cups_cred.bin` uploaded under `cups/cups_cred.bin`.
+  - `tc_cred.bin` uploaded under `cups/tc_cred.bin`.
+
+## Integrations and dependencies
+
+- **Cloud control plane:** DigitalOcean API for load balancer -> droplet resolution.
+- **Remote execution path:** SSH/SCP into droplets for cert deployment and service restarts.
+- **Storage:** AWS CLI against S3-compatible Spaces bucket for credential bundle publishing.
+- **Crypto tooling:** OpenSSL for key generation, CSR, certificate signing, DER conversion, and bundle composition.
+- **Downstream consumer:** `lorawan-cups-server` retrieves uploaded bundles for gateway provisioning.
+
+## Operations notes
+
+- This is an imperative ops utility; safe execution depends on correct environment and host tooling.
+- Secrets and CA key material are supplied externally and must never be committed.
+- Key failure modes to check first:
+  - invalid/missing `.env` values (token, IDs, paths, profile),
+  - SSH connectivity or permissions to target droplets,
+  - AWS/Spaces upload failures leaving stale bundles in storage,
+  - partial run where one renewal flow succeeds and the other fails.
+
+## Source of truth
+
+- Repository: [github.com/nxtgrid/lorawan-cert-renewer](https://github.com/nxtgrid/lorawan-cert-renewer)
+- Runbook and environment requirements: `README.md`, `.env.example`
+- Entrypoint orchestration: `index.sh`
+- Renewal implementations: `cups-cert-renew.sh`, `tc-cert-renew.sh`
+- Artifact handling paths: `.gitignore` (`tmp/`, `crt/`)

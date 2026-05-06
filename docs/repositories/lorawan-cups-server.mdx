@@ -6,24 +6,70 @@ title: lorawan-cups-server
 
 ## Purpose
 
-`lorawan-cups-server` provides CUPS functionality for LoRaWAN device configuration and updates.
+`lorawan-cups-server` is a backend implementation of the Semtech LoRaWAN CUPS protocol. It serves gateway configuration/update responses over HTTPS and manages gateway credential bundle delivery for secure Trust Center/LNS connectivity.
 
 ## Scope
 
-- CUPS protocol handling for configuration/update operations.
-- Runtime generation of responses for compliant LoRaWAN infrastructure workflows.
+- In scope:
+  - Binary CUPS `/update-info` request handling and binary response composition.
+  - Gateway-specific credential bundle lookup/generation and S3-backed persistence.
+  - HTTPS endpoint delivery with CUPS server certificates.
+- Out of scope:
+  - Certificate renewal scheduling (handled by `lorawan-cert-renewer`).
+  - LoRaWAN network server operation itself.
 
-## Key components
+## What this service does in production
 
-- Binary protocol parsing and response generation.
-- Certificate/config distribution logic.
-- Integration boundary with LoRaWAN network infrastructure.
+- Accepts gateway update requests as `application/octet-stream` and parses router identity.
+- Resolves or generates gateway-specific `tc_cred` bundles and retrieves shared `cups_cred` bundle.
+- Builds Semtech-compatible response payloads (URI/config blocks, signature segment, firmware update segment).
+- Signs payloads with CUPS private key and returns binary response over HTTPS.
+
+## Primary workflows
+
+- Gateway update workflow: gateway calls `POST /update-info`; service parses router ID, composes response, and returns update payload.
+- Credential lookup workflow: service checks S3 for non-expiring `tc_cred_<gateway>-<expiry>.bin` bundle and reuses latest valid one.
+- Credential generation workflow: if missing/expiring, service generates client key/CSR/certificate via OpenSSL, builds DER bundle, uploads to S3, and serves it.
 
 ## Setup and run
 
 - Repository: [github.com/nxtgrid/lorawan-cups-server](https://github.com/nxtgrid/lorawan-cups-server)
-- Local setup and runtime instructions are maintained in the repository README.
+- Development: `npm run dev` (TypeScript via `ts-node`).
+- Production: `npm run build` then `npm start`.
+- Docker path mounts host cert directory and exposes port `443`.
 
-## Status
+## APIs and interfaces
 
-- Baseline page. Expand with protocol flow diagrams and certificate/update lifecycle details.
+- `POST /update-info` is the core protocol endpoint.
+  - Input: binary CUPS request (`application/octet-stream`) including router identity and CRC hints.
+  - Output: binary CUPS response containing key blob, signature segment, and firmware segment placeholder.
+- Service binds HTTPS directly and reads `cups.key`/`cups.crt` from configured cert path.
+- Internal helper modules:
+  - `src/s3.ts` for S3-compatible object retrieval/upload.
+  - `src/utils.ts` for router ID parsing, OpenSSL-based credential generation, and binary length encoding.
+
+## Integrations and dependencies
+
+- **Object storage:** S3-compatible bucket for credential bundle storage under `cups/` prefix.
+- **Crypto/tooling:** Node crypto APIs plus OpenSSL CLI for cert/key generation and format conversion.
+- **Protocol dependencies:** Semtech CUPS binary response conventions and CRC/signature handling.
+- **Companion service dependency:** `lorawan-cert-renewer` maintains upstream certificate lifecycle that this server consumes.
+
+## Operations notes
+
+- Service requires valid environment variables for S3 access, cert path, URIs, and credential validity policy.
+- `CREDENTIAL_MIN_VALID_DAYS` controls proactive credential regeneration before expiry.
+- Port 443 binding means runtime permissions/container config must allow privileged HTTPS port use.
+- Key failure modes to check first:
+  - missing/invalid cert files (`cups.key`, `cups.crt`, `ca.key`, `ca.crt`),
+  - S3 permission or endpoint failures preventing credential retrieval/upload,
+  - OpenSSL execution failures during on-demand bundle generation.
+
+## Source of truth
+
+- Repository: [github.com/nxtgrid/lorawan-cups-server](https://github.com/nxtgrid/lorawan-cups-server)
+- Protocol endpoint implementation: `index.ts`
+- S3 integration: `src/s3.ts`
+- Credential generation and binary helpers: `src/utils.ts`
+- Runtime config contract: `.env.example`
+- Container/deployment config: `Dockerfile`, `docker-compose.yml`
