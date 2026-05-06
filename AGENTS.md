@@ -29,6 +29,8 @@ This file defines how AI agents/models should collaborate in this repository, in
 - Expand documentation breadth-first across repositories before deep-diving one repository, unless the user requests otherwise.
 - For monorepos, use parent pages with nested component subpages.
 - For one-app-one-repo projects, keep one baseline page each.
+- For single-repo pages, prioritize concrete operational facts over process/status commentary.
+- Treat frontend-heavy and backend-only single repos differently: document route/UX/realtime behavior for frontend apps, and API/job/datastore/runtime behavior for backend services.
 - Keep repository ordering consistent:
   - `nxt-*` first, alphabetical
   - `lorawan-*` second, alphabetical
@@ -48,6 +50,7 @@ This file defines how AI agents/models should collaborate in this repository, in
 - If the human gives an explicit mode in the prompt, follow the prompt mode for that run and then update state if appropriate.
 - For `bootstrap` mode:
   - Prioritize structure, ownership boundaries, interfaces, runtime behavior, and integration coverage.
+  - Meet evidence threshold: at least 5 concrete facts tied to source artifacts, 2 end-to-end workflows, and 3 failure/edge cases.
   - Promote to `maintenance` only after checklist quality gates and docs build pass.
 - For `maintenance` mode:
   - Compare `last_synced_sha..HEAD` in the source repository.

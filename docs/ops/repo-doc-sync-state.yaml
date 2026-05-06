@@ -20,28 +20,28 @@ nxt-control-room:
   repo: nxtgrid/nxt-control-room
   branch: main
   standard: single-repo
-  doc_mode: bootstrap
-  status: baseline
-  last_synced_sha:
-  last_synced_at:
+  doc_mode: maintenance
+  status: standard-compliant
+  last_synced_sha: b78ace8525abb87f1457f8af953a9bdbe7cf3cd9
+  last_synced_at: 2026-05-06
 
 nxt-crm:
   repo: nxtgrid/nxt-crm
   branch: main
   standard: single-repo
-  doc_mode: bootstrap
-  status: baseline
-  last_synced_sha:
-  last_synced_at:
+  doc_mode: maintenance
+  status: standard-compliant
+  last_synced_sha: f3ebb283502b8cfc273438cd462e3e914479b27b
+  last_synced_at: 2026-05-06
 
 nxt-field-ops:
   repo: nxtgrid/nxt-field-ops
   branch: main
   standard: single-repo
-  doc_mode: bootstrap
-  status: baseline
-  last_synced_sha:
-  last_synced_at:
+  doc_mode: maintenance
+  status: standard-compliant
+  last_synced_sha: a218835b5b3eb662b9f67fe1febfb313fbbe9059
+  last_synced_at: 2026-05-06
 
 nxt-gis:
   repo: nxtgrid/nxt-gis

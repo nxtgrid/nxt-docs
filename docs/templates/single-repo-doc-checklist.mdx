@@ -6,29 +6,38 @@ title: Single-Repo Doc Checklist
 
 Use this checklist for one-app-one-repo projects.
 
-## 1) Baseline repository page
+## 1) Core repository page (required)
 
 - [ ] Purpose section explains business/platform role.
-- [ ] Scope section defines what the repository owns.
-- [ ] Key components section covers core modules or flows.
-- [ ] Setup/run references point to the source repository docs.
-- [ ] Status section notes maturity and known documentation gaps.
+- [ ] Scope section defines what the repository owns and does not own.
+- [ ] "What this app/service does in production" section is concrete (not generic).
+- [ ] Primary user/system workflows are listed as real end-to-end flows.
+- [ ] Setup/run references point to source docs and required runtime environment.
 
-## 2) Interfaces and integrations
+## 2) Interfaces, dependencies, and runtime
 
-- [ ] Identify main inputs/outputs (API, jobs, events, files).
-- [ ] List critical dependencies and downstream consumers.
-- [ ] Note external systems (payments, messaging, cloud services, etc.).
+- [ ] Identify main inputs/outputs (API, jobs, events, files, queues, telemetry).
+- [ ] List critical upstream dependencies and downstream consumers.
+- [ ] Note external systems (payments, messaging, cloud services, IoT, observability, etc.).
+- [ ] Runtime behavior section exists (request/worker/scheduler model as applicable).
+- [ ] Failure modes section exists with practical diagnostics hints.
+- [ ] Change-impact map exists ("if X changes, verify Y/Z").
 
-## 3) Practical depth target
+## 3) Evidence threshold (required)
 
-- [ ] Enough detail for another engineer to understand why the repo exists.
-- [ ] Enough detail to locate setup/docs quickly.
-- [ ] No deep internals unless requested or high-risk integration areas require it.
+- [ ] At least 5 concrete facts are traceable to source artifacts (routes, modules, env vars, jobs, configs).
+- [ ] At least 2 concrete workflows are documented end-to-end.
+- [ ] At least 3 concrete failure/edge cases are documented.
+- [ ] Source-of-truth pointers are included (specific files/paths in source repo).
 
-## 4) Quality gates before merge
+## 4) Repo-type extensions (choose one)
+
+- [ ] Frontend-heavy repo: route surface, UX-critical workflows, and realtime behavior are documented.
+- [ ] Backend-only repo: API/job boundaries, datastore usage, and operational run behavior are documented.
+
+## 5) Quality gates before merge
 
 - [ ] Repository page is linked in `Repositories` overview.
 - [ ] Sidebar order conventions are preserved (`nxt-*`, then `lorawan-*`).
-- [ ] Content is concise and avoids stale boilerplate.
+- [ ] Content is practical and avoids stale boilerplate/meta-only status text.
 - [ ] `npm run build` passes.
