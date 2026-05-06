@@ -30,7 +30,10 @@ This file defines how AI agents/models should collaborate in this repository, in
 - For monorepos, use parent pages with nested component subpages.
 - For one-app-one-repo projects, keep one baseline page each.
 - For single-repo pages, prioritize concrete operational facts over process/status commentary.
-- Treat frontend-heavy and backend-only single repos differently: document route/UX/realtime behavior for frontend apps, and API/job/datastore/runtime behavior for backend services.
+- Treat single-repo types explicitly:
+  - frontend-heavy apps: route/UX/realtime behavior.
+  - backend-only services: API/job/datastore/runtime behavior.
+  - shared libraries: consumer contract, compatibility boundaries, and change-impact expectations.
 - Keep repository ordering consistent:
   - `nxt-*` first, alphabetical
   - `lorawan-*` second, alphabetical

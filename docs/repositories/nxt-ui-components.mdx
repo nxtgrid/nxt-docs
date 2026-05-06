@@ -6,24 +6,67 @@ title: nxt-ui-components
 
 ## Purpose
 
-`nxt-ui-components` is the shared frontend component and integration library used across NXT applications.
+`nxt-ui-components` is the shared frontend library for NXT applications. It centralizes reusable Vue UI components, composables, style primitives, and integration helpers so product apps can ship consistently without duplicating core frontend infrastructure.
 
 ## Scope
 
-- Reusable UI components and composables.
-- Shared styling patterns and integration helpers.
+- In scope:
+  - Shared component primitives and domain-facing UI building blocks under `shared/components`.
+  - Shared composables and directives for cross-app behaviors under `shared/composables` and `shared/directives`.
+  - Shared utility and integration layers (API connection, plugins, helpers) under `shared/libraries`.
+  - Global style tokens/mixins and common styling contract under `shared/styles`.
+- Out of scope:
+  - End-user app routing and product-specific page workflows.
+  - Backend business logic owned by service repositories.
 
-## Key components
+## What this library does in production
 
-- Vue 3 component library.
-- Shared composables and utility abstractions.
-- API integration helpers used by multiple frontend repos.
+- Acts as the shared frontend foundation consumed by `nxt-control-room`, `nxt-crm`, `nxt-field-ops`, and `nxt-topup`.
+- Provides one import surface (`@nxt/*` in local dev or `nxt-shared` in packaged consumption) for UI, plugins, API-connection helpers, and formatting utilities.
+- Reduces cross-repo drift by keeping common widgets, styles, and integration contracts in one maintained package.
+
+## Primary consumption workflows
+
+- Local development workflow: consumer apps clone this repo as sibling and resolve `@nxt/*` to `../nxt-ui-components/shared/*`.
+- CI/production dependency workflow: consumer apps install `nxt-shared` from GitHub and consume the packaged shared modules.
+- Design/system workflow: teams validate and iterate reusable components via Storybook (`npm run storybook`).
 
 ## Setup and run
 
 - Repository: [github.com/nxtgrid/nxt-ui-components](https://github.com/nxtgrid/nxt-ui-components)
-- Local setup, build, and release instructions are maintained in the repository README.
+- Local setup:
+  - `nvm use`
+  - `npm install`
+  - `npm run storybook` for interactive component development.
 
-## Status
+## APIs and interfaces
 
-- Baseline page. Expand with package usage patterns and versioning guidance for consuming apps.
+- Primary exported surface lives under `shared/`:
+  - `shared/components` for reusable Vue components.
+  - `shared/composables` for cross-app runtime behaviors (for example MQTT/realtime/payment-related helpers).
+  - `shared/libraries` for API-connection, plugins, and helper modules.
+  - `shared/styles` for SCSS variables/mixins.
+- Key integration entrypoint: `shared/nxt-vue.js` plugin-style integration for consumer apps.
+- Consumer contract is path/alias-based in development and git dependency-based in packaged environments.
+
+## Integrations and dependencies
+
+- Core stack: Vue 3, Pinia, and shared utility/tooling dependencies used across all frontend consumers.
+- Integration-facing dependencies include Supabase client, Mapbox stack, MQTT client, and Flutterwave-related surfaces.
+- Storybook stack is used for component development/review lifecycle.
+- Notable license-sensitive dependencies are explicitly tracked in the source README (for example `mapbox-gl-style-switcher` GPL-3.0 and `paho-mqtt` EPL-1.0).
+
+## Operations notes
+
+- This repo is a dependency hub; breaking changes can impact multiple frontend apps simultaneously.
+- Consumer-facing change impact checks should always include at least one app in local-dev alias mode and one packaged dependency path.
+- Known operational sharp edge: `@vueuse/core` patch expectations require `patches/` + `patch-package` handling in consumers using affected composables.
+
+## Source of truth
+
+- Repository: [github.com/nxtgrid/nxt-ui-components](https://github.com/nxtgrid/nxt-ui-components)
+- Package overview and consumption modes: `README.md`
+- Package metadata and scripts: `package.json`
+- Shared export structure: `shared/`
+- Integration/plugin entrypoint: `shared/nxt-vue.js`
+- Storybook workflows: `npm run storybook` and `npm run build-storybook`

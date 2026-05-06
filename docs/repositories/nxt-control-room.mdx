@@ -6,24 +6,65 @@ title: nxt-control-room
 
 ## Purpose
 
-`nxt-control-room` is the central operations dashboard for managing infrastructure, users, and operational workflows.
+`nxt-control-room` is the operations dashboard for running mini-grid systems day-to-day. It is where operators monitor site performance, execute customer and meter actions, troubleshoot field issues, and run operational tooling.
 
 ## Scope
 
-- Real-time operational oversight.
-- Management workflows for core infrastructure and platform entities.
+- In scope:
+  - Grid and organization operations (grids, meters, customers, devices, payouts, audits).
+  - Operator tooling (meter testing, emergency top-up, retry token, EpiCollect sync, presence/realtime tools).
+  - Real-time queue-based meter interactions and troubleshooting workflows.
+- Out of scope:
+  - Backend business logic and async orchestration (owned by `nxt-backend` services).
+  - Customer self-service UX (owned by end-user applications such as top-up apps).
 
-## Key components
+## What operators do here (primary workflows)
 
-- Monitoring and control dashboards.
-- Operations workflows across users, assets, and payment-linked processes.
-- Integrations with backend APIs and operational services.
+- Open the grid dashboard and drill down into meters, customers, hardware, financials, and issues.
+- Run meter interaction and queue workflows (including dedicated meter interaction queue views).
+- Execute financial operations (top-ups, payouts, transactions, connection fee views).
+- Perform troubleshooting and field-support tasks through tools views (meter testing, retry token, emergency top-up).
+- Manage organization-level and account-level operational settings.
 
-## Setup and run
+## System context
+
+- **Frontend runtime:** Vue 3 + Vue Router + Pinia (`src/main.js` bootstraps app shell, state, router, tracking, and route guards).
+- **Primary backend dependency:** `nxt-backend` APIs via `VITE_API_URL`.
+- **Realtime path:** Socket.IO endpoint (`VITE_SOCKET_URL`, `VITE_SOCKET_PATH`) for meter interaction queue behavior.
+- **Auth/data services:** Supabase identifiers/keys via environment configuration.
+- **Shared UI/system layer:** `nxt-ui-components` (`nxt-shared`) used via `@nxt/*` aliases.
+
+## APIs and interfaces
+
+- Route surface is broad and operationally partitioned:
+  - Top-level views: `/grids`, `/organizations`, `/global-performance`, `/tools`, `/search`.
+  - Grid-scoped flows: `/grid/:gridId/...` for meters, issues, financials, customers, hardware, devices, scans, audits, and info.
+  - Tooling flows: `/tools/meter-testing`, `/tools/emergency-topup`, `/tools/retry-token`, `/tools/epicollect-sync`, `/tools/realtime-orders`, `/tools/presence`.
+- Query parsing/stringifying is standardized through `qs` in router config.
+- App uses guarded navigation (`applyRouteGuards`) to enforce route-level access behavior.
+
+## Integrations and dependencies
+
+- **Payments/financial operations:** Flutterwave public key and payout/top-up operational views.
+- **Geo workflows:** Mapbox + geo API + optional draft webhook pipeline.
+- **LoRaWAN troubleshooting:** ChirpStack configuration for network-server related tooling.
+- **Analytics/observability surfaces:** Grafana URLs used for embedded/linked operational dashboards.
+- **Ancillary integrations:** MQTT credentials, Jira URL, Hotjar site ID, Telegram bot deep-link support.
+
+## Operations notes
+
+- Production build is Vite-based and includes PWA packaging (`vite-plugin-pwa`) for installable dashboard behavior.
+- Local dev expects sibling checkout of `nxt-ui-components` (path alias resolves `@nxt/*` to shared sources in development mode).
+- Operational failure modes to watch first:
+  - `VITE_API_URL` misconfiguration (dashboard loads but core data/actions fail).
+  - Socket endpoint mismatch (meter interaction queue appears stale or non-updating).
+  - Missing keys/tokens for integrations (payments, geo tools, ChirpStack, Grafana panels partially unavailable).
+
+## Source of truth
 
 - Repository: [github.com/nxtgrid/nxt-control-room](https://github.com/nxtgrid/nxt-control-room)
-- Local setup and runtime instructions are maintained in the repository README.
-
-## Status
-
-- Baseline page. Expand with control-room workflows and alert/response flows.
+- Product/runtime overview: `README.md`
+- App bootstrap and plugins: `src/main.js`
+- Route and workflow surface: `src/router/index.js`
+- Runtime configuration contract: `.env.example`
+- Build/runtime packaging: `vite.config.js`

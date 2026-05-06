@@ -65,19 +65,19 @@ nxt-topup:
   repo: nxtgrid/nxt-topup
   branch: main
   standard: single-repo
-  doc_mode: bootstrap
-  status: baseline
-  last_synced_sha:
-  last_synced_at:
+  doc_mode: maintenance
+  status: standard-compliant
+  last_synced_sha: 89784fba3b2ceba06d5f50e44a8ba081fbf2eb5d
+  last_synced_at: 2026-05-06
 
 nxt-ui-components:
   repo: nxtgrid/nxt-ui-components
   branch: main
   standard: single-repo
-  doc_mode: bootstrap
-  status: baseline
-  last_synced_sha:
-  last_synced_at:
+  doc_mode: maintenance
+  status: standard-compliant
+  last_synced_sha: 949481c0717eaebd60f7e3e04ad41386450be54d
+  last_synced_at: 2026-05-06
 
 lorawan-cert-renewer:
   repo: nxtgrid/lorawan-cert-renewer

@@ -6,24 +6,65 @@ title: nxt-crm
 
 ## Purpose
 
-`nxt-crm` is the operator-facing CRM/dashboard application for managing mini-grid sites and communities.
+`nxt-crm` is a progressive web app used by mini-grid developers and operators to monitor communities, manage site/customer operations, and run day-to-day CRM workflows tied to grid performance and member activity.
 
 ## Scope
 
-- Operational visibility for infrastructure and customers.
-- Site, hardware, and organization management workflows.
+- In scope:
+  - Customer/community operational workflows and CRM views for mini-grid operations.
+  - Grid-level monitoring, transactions, top-ups, meter commands, and issue handling flows.
+  - Site-submission onboarding flow and selected project-development screens.
+- Out of scope:
+  - Backend workflow orchestration and core business logic (owned by `nxt-backend`).
+  - Technician-first field execution workflows (owned by `nxt-field-ops`).
 
-## Key components
+## What this app does in production
 
-- Dashboard and monitoring views.
-- Administrative workflows for entities and records.
-- Backend API integrations for operational data.
+- Gives operators a consolidated view of members, transactions, grid health, and customer actions.
+- Enables customer/account actions such as top-up and meter command workflows from CRM surfaces.
+- Supports public/site-submission funnel steps for collecting new project-site information.
+
+## Primary workflows
+
+- Organization dashboard workflow: open home dashboard, inspect key site/operations status, then drill into a grid context.
+- Customer operations workflow: navigate to grid customers, inspect customer details, then execute top-up or interaction action paths.
+- Site submission workflow: submit site details through staged routes (`start -> outline -> details -> done`).
 
 ## Setup and run
 
 - Repository: [github.com/nxtgrid/nxt-crm](https://github.com/nxtgrid/nxt-crm)
 - Local setup and runtime instructions are maintained in the repository README.
 
-## Status
+## APIs and interfaces
 
-- Baseline page. Expand with role-based workflows and key domain screens.
+- Route surface includes top-level and grid-scoped operations:
+  - Top-level routes: `/`, `/transactions`, `/members`, `/search`.
+  - Grid-scoped routes: `/grid/:gridId/...` for issues, customers, agents, top-ups, full-service control, and walkaround.
+  - Public/auth routes for password workflows and site submission.
+- Router uses `qs` parse/stringify behavior for query handling consistency.
+- App bootstraps with Pinia persisted state, route guards, and shared `@nxt/*` UI/plugin surfaces.
+
+## Integrations and dependencies
+
+- **Backend + auth/data:** depends on `VITE_API_URL` and Supabase credentials.
+- **Realtime + monitoring surfaces:** MQTT credentials and Grafana autopilot URL are part of runtime config.
+- **Geo and payments:** Mapbox token, geo API URL, and Flutterwave public key power specific CRM features.
+- **Shared UI system:** `nxt-shared` (`nxt-ui-components`) consumed through `@nxt` aliasing.
+
+## Operations notes
+
+- Runtime is Vite + PWA (`vite-plugin-pwa`) with standalone install behavior and offline-capable frontend shell.
+- Local development expects sibling checkout of `nxt-ui-components` for development alias resolution.
+- Failure modes to check first:
+  - incorrect `VITE_API_URL` or Supabase keys (core CRM data/actions fail),
+  - missing third-party env vars (payments/geo/analytics features degrade),
+  - route guard/auth issues causing unexpected redirects or blocked protected flows.
+
+## Source of truth
+
+- Repository: [github.com/nxtgrid/nxt-crm](https://github.com/nxtgrid/nxt-crm)
+- Product/runtime overview: `README.md`
+- App bootstrap and guard/plugin wiring: `src/main.js`
+- Route/workflow map: `src/router/index.js`
+- Runtime configuration contract: `.env.example`
+- Build and PWA behavior: `vite.config.js`

@@ -6,24 +6,66 @@ title: nxt-field-ops
 
 ## Purpose
 
-`nxt-field-ops` supports technicians in the field for installation, commissioning, and fault-resolution tasks.
+`nxt-field-ops` is the technician-facing field operations PWA for on-site meter installation, assignment, commissioning, and pole-tagging workflows under constrained mobile connectivity conditions.
 
 ## Scope
 
-- Mobile workflows for onsite operations.
-- Data capture and task execution during technical interventions.
+- In scope:
+  - Meter assignment workflows and installation steps executed on mobile devices.
+  - Pole-tagging and field navigation-adjacent utilities for onsite teams.
+  - Field auth/reset flows needed to keep technicians operational in the field.
+- Out of scope:
+  - Central operator CRM/control dashboards (owned by `nxt-crm` and `nxt-control-room`).
+  - Backend orchestration, token generation, and asynchronous platform workflows (owned by backend services).
 
-## Key components
+## What this app does in production
 
-- Field task flows for install/commissioning.
-- Fault and maintenance workflows.
-- Backend API integrations for operational updates.
+- Guides technicians through meter assignment and commissioning sequences from handheld devices.
+- Captures installation context and meter details to sync back to backend systems.
+- Provides a focused, low-friction mobile UI for field task completion rather than broad administrative operations.
+
+## Primary workflows
+
+- Meter assignment workflow: select customer, run multi-step assignment (`meter-number -> meter-number-reversed -> meter-details`), then submit assignment outcome.
+- Meter/pole workflow: inspect meter lists and execute pole tagging from dedicated field screens.
+- Field account recovery workflow: password reset/verify flows to restore technician access without desktop tooling.
 
 ## Setup and run
 
 - Repository: [github.com/nxtgrid/nxt-field-ops](https://github.com/nxtgrid/nxt-field-ops)
 - Local setup and runtime instructions are maintained in the repository README.
 
-## Status
+## APIs and interfaces
 
-- Baseline page. Expand with technician user journeys and offline/low-connectivity behavior notes.
+- Route surface is compact and task-oriented:
+  - Core routes: `/`, `/meters`, `/meters/select-customer`.
+  - Assignment flow: `/meters/assign/*` child steps for guided data capture.
+  - Pole operations: `/poles`, `/poles/tag`.
+  - Public auth recovery: `/account/forgot-password`, `/account/verify`, `/account/reset-password`.
+- Interface behavior is optimized for sequential completion of field tasks rather than broad dashboard navigation.
+- App bootstraps with Pinia persisted state and shared `@nxt/*` UI components.
+
+## Integrations and dependencies
+
+- **Backend + auth/data:** depends on `VITE_API_URL`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY`.
+- **Field-specific utility stack:** uses Turf distance utilities for geo calculations during field workflows.
+- **Shared UI system:** consumes `nxt-shared` (`nxt-ui-components`) via `@nxt` alias.
+- **Maintenance signaling:** optional maintenance endpoint controls frontend under-maintenance behavior.
+
+## Operations notes
+
+- Runtime is Vite + PWA (`vite-plugin-pwa`) with mobile-first, installable behavior for technicians.
+- Local development expects sibling checkout of `nxt-ui-components` for development alias resolution.
+- Failure modes to check first:
+  - API/Supabase env mismatch causing assignment submission failures,
+  - session/auth expiry during field execution leading to interrupted multi-step workflows,
+  - low-connectivity conditions causing delayed sync of task completion state.
+
+## Source of truth
+
+- Repository: [github.com/nxtgrid/nxt-field-ops](https://github.com/nxtgrid/nxt-field-ops)
+- Product/runtime overview: `README.md`
+- App bootstrap: `src/main.js`
+- Route/workflow map: `src/router/index.js`
+- Runtime configuration contract: `.env.example`
+- Build and PWA behavior: `vite.config.js`

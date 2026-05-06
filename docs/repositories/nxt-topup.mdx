@@ -6,24 +6,66 @@ title: nxt-topup
 
 ## Purpose
 
-`nxt-topup` is the customer-facing application for prepaid meter top-ups and payment history.
+`nxt-topup` (NXT Pay) is the customer-facing payment PWA for prepaid energy purchases. It enables meter top-up flows, transaction tracking, and lightweight account operations from mobile-first interfaces.
 
 ## Scope
 
-- Customer purchase and top-up journeys.
-- Transaction visibility and account-level payment interactions.
+- In scope:
+  - Customer top-up purchase journeys and post-payment confirmation flow.
+  - Agent-facing view for assisted top-up operations.
+  - Account recovery routes needed to keep payment access available.
+- Out of scope:
+  - Backend payment orchestration and token-generation logic (owned by backend services).
+  - Broad operational/CRM workflows (owned by `nxt-control-room` and `nxt-crm`).
 
-## Key components
+## What this app does in production
 
-- Top-up/payment UI flows.
-- API integration for balances, orders, and transaction records.
-- Mobile-first PWA experience.
+- Provides a fast, public-access payment flow (`home -> top-up-meter -> top-up-success`) for prepaid meter customers.
+- Supports an authenticated/role-specific agent workspace for assisted transactions.
+- Preserves account context via Supabase session checks and profile refresh on first navigation.
+
+## Primary workflows
+
+- Customer top-up workflow: start at home, enter top-up details, complete payment, and land on success/receipt confirmation.
+- Agent-assisted workflow: enter `/agent` to perform assisted customer top-up activities.
+- Account recovery workflow: reset/verify password through dedicated account routes to restore payment access.
 
 ## Setup and run
 
 - Repository: [github.com/nxtgrid/nxt-topup](https://github.com/nxtgrid/nxt-topup)
 - Local setup and deployment details are maintained in the repository README.
 
-## Status
+## APIs and interfaces
 
-- Baseline page. Expand with user flows, API contracts, and UI state mapping.
+- Route surface is intentionally compact:
+  - Public-flow routes: `/`, `/top-up-meter`, `/top-up-success`.
+  - Agent route: `/agent`.
+  - Auth recovery routes: `/account/forgot-password`, `/account/verify`, `/account/reset-password`.
+- Router boot includes first-load session synchronization (`supabaseRepo.client.auth.getSession()`) and conditional profile refresh for logged-in accounts.
+- Frontend state uses Pinia with persisted-state plugin for continuity across reloads.
+
+## Integrations and dependencies
+
+- **Payments:** Flutterwave public key drives checkout integration paths.
+- **Backend and auth/data:** depends on `VITE_API_URL`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY`.
+- **Observability/ops hooks:** supports Hotjar and maintenance endpoint toggles.
+- **Shared UI system:** consumes `nxt-shared` (`nxt-ui-components`) via `@nxt` aliasing.
+- **Branding:** supports customer-specific white-label assets under `public/branding`.
+
+## Operations notes
+
+- Runtime is Vite + PWA (`vite-plugin-pwa`) with standalone install behavior and offline-capable shell.
+- Local development expects sibling `nxt-ui-components` checkout for development alias resolution.
+- Failure modes to check first:
+  - payment key misconfiguration causing checkout failures,
+  - API/Supabase misconfiguration causing login/profile/top-up sync failures,
+  - callback/success route issues causing user confusion after payment completion.
+
+## Source of truth
+
+- Repository: [github.com/nxtgrid/nxt-topup](https://github.com/nxtgrid/nxt-topup)
+- Product/runtime overview: `README.md`
+- App bootstrap and first-load auth/session behavior: `src/main.js`
+- Route/workflow map: `src/router/index.js`
+- Runtime configuration contract: `.env.example`
+- Build and PWA behavior: `vite.config.js`
