@@ -41,6 +41,10 @@ Use explicit prompts when needed:
 
 Prompt override is temporary for that run; state should still be updated afterward.
 
+## Static HTML mirrors (diagrams)
+
+Some repositories ship interactive diagrams as HTML under `docs/diagrams/`. During maintenance for those repos, copy updated files into `static/repos/<repo-short-name>/diagrams/` (for example `static/repos/nxt-backend/diagrams/`) so Docusaurus can serve them. Embed from MDX with the `EmbeddedHtmlDiagram` component and a `path` relative to `static/` (for example `repos/nxt-backend/diagrams/foo.html`).
+
 ## Minimal required state fields
 
 - `repo`

@@ -18,6 +18,17 @@
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
+.embedded-html-diagram iframe {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: var(--ifm-global-radius);
+  display: block;
+}
+
+.embedded-html-diagram__caption {
+  margin-top: 0.5rem;
+  font-size: var(--ifm-font-size-secondary);
+}
+
 [data-theme='dark'] {
   --ifm-color-primary: #2ba0bd;
   --ifm-color-primary-dark: #278fad;

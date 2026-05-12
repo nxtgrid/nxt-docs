@@ -1,0 +1,39 @@
+---
+title: Architecture diagrams
+---
+
+import EmbeddedHtmlDiagram from '@site/src/components/EmbeddedHtmlDiagram';
+
+# Architecture diagrams
+
+These interactive diagrams are maintained in [`nxt-backend/docs/diagrams`](https://github.com/nxtgrid/nxt-backend/tree/main/docs/diagrams) and mirrored here as static assets so they render inside NXT Docs.
+
+## Meter communications flow
+
+End-to-end meter communication paths and integration touchpoints.
+
+<EmbeddedHtmlDiagram
+  title="Meter communications flow"
+  path="repos/nxt-backend/diagrams/meter-communications-flow.html"
+  height={700}
+/>
+
+## Device message lifecycle
+
+High-level flow for device-related messaging through the stack.
+
+<EmbeddedHtmlDiagram
+  title="Device message lifecycle"
+  path="repos/nxt-backend/diagrams/device-message-lifecycle.html"
+  height={700}
+/>
+
+## After-effects cascade
+
+How downstream actions and side effects chain after primary operations.
+
+<EmbeddedHtmlDiagram
+  title="After-effects cascade"
+  path="repos/nxt-backend/diagrams/after-effects-cascade.html"
+  height={700}
+/>

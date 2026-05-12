@@ -26,6 +26,7 @@ const sidebars: SidebarsConfig = {
             'repositories/nxt-backend/yeti',
             'repositories/nxt-backend/shared-libs',
             'repositories/nxt-backend/data-layer',
+            'repositories/nxt-backend/diagrams',
           ],
         },
         'repositories/nxt-control-room',
