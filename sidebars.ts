@@ -33,7 +33,15 @@ const sidebars: SidebarsConfig = {
         'repositories/nxt-crm',
         'repositories/nxt-field-ops',
         'repositories/nxt-gis',
-        'repositories/nxt-sts',
+        {
+          type: 'category',
+          label: 'nxt-sts',
+          link: {
+            type: 'doc',
+            id: 'repositories/nxt-sts',
+          },
+          items: ['repositories/nxt-sts/digital-ocean'],
+        },
         'repositories/nxt-topup',
         'repositories/nxt-ui-components',
         'repositories/lorawan-cert-renewer',

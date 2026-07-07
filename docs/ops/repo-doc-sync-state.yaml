@@ -58,8 +58,8 @@ nxt-sts:
   standard: single-repo
   doc_mode: maintenance
   status: standard-compliant
-  last_synced_sha: 3d12f413cc5363ca208505e8872ffd08e6ff14af
-  last_synced_at: 2026-05-06
+  last_synced_sha: 86f7581820fba938b7523632d10b93f3d713d714
+  last_synced_at: 2026-07-07
 
 nxt-topup:
   repo: nxtgrid/nxt-topup

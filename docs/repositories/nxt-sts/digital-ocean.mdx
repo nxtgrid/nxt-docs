@@ -1,0 +1,256 @@
+---
+title: DigitalOcean App Platform
+---
+
+# Deploy nxt-sts on DigitalOcean App Platform
+
+This guide deploys `nxt-sts` on [DigitalOcean App Platform](https://docs.digitalocean.com/products/app-platform/) as a web service. Choose one of two source options:
+
+1. **Pre-built GHCR image** — pull a released container from GitHub Container Registry.
+2. **GitHub repository build** — App Platform builds the image from the repository `Dockerfile` on each deploy.
+
+Both paths produce the same runtime: a stateless Spring Boot service listening on port **8080** with health checks at `/actuator/health`.
+
+## Prerequisites
+
+- DigitalOcean account with App Platform access.
+- For GHCR deploy: a published image at `ghcr.io/nxtgrid/nxt-sts` (created when a `v*.*.*` tag is pushed to the repository).
+- For GitHub build: DigitalOcean authorized to access the `nxtgrid/nxt-sts` repository.
+- If the GHCR package is private: a GitHub personal access token with `read:packages` scope, added as a container registry credential in App Platform.
+
+## Shared runtime settings
+
+Configure the HTTP port during app creation. Health checks are configured separately after the app exists — see [Configure health checks](#configure-health-checks-settings-tab) below.
+
+| Setting | Value |
+|---|---|
+| Component type | Web Service |
+| HTTP port | `8080` |
+
+Optional environment variables (safe defaults are committed in the repository):
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `SERVER_PORT` | HTTP listen port | `8080` |
+| `SPRING_APPLICATION_NAME` | Service name in logs/actuator | `nxt-sts` |
+
+No database, Redis, or other backing services are required — `nxt-sts` is stateless.
+
+## Option A — Deploy from GHCR
+
+Use this when you want App Platform to run a pre-built release image without rebuilding from source.
+
+### 1. Create the app
+
+1. In the DigitalOcean control panel, go to **Apps → Create App**.
+2. Choose **Container Registry** (or **Deploy from a container image** depending on UI version).
+3. Select **GitHub Container Registry (GHCR)** as the registry type.
+4. Set the image to `ghcr.io/nxtgrid/nxt-sts` with tag `latest` or a specific version (e.g. `v1.0.0`).
+
+Pinning a version tag is recommended for production; `latest` tracks the most recent release.
+
+### 2. Configure registry access (private packages only)
+
+If the GHCR package is not public:
+
+1. Create a GitHub PAT with `read:packages` scope.
+2. In App Platform, add a registry credential for GHCR (username: your GitHub username, password: the PAT).
+3. Attach the credential to the app component.
+
+### 3. Set HTTP port
+
+1. Set **HTTP port** to `8080` (matches `EXPOSE 8080` in the Dockerfile).
+2. Leave the component as a **Web Service** (not a worker or job).
+
+Health checks are configured after app creation in **Settings** — the default TCP check on port `8080` is usually sufficient for first deploy (see [Configure health checks](#configure-health-checks-settings-tab)).
+
+### 4. Deploy
+
+Review the plan and create the app. App Platform pulls the image and starts the container.
+
+On first deploy, App Platform uses the default TCP readiness check on port `8080`. No change is required if the deploy succeeds.
+
+To roll forward, push a new version tag in the repository (which triggers the GHCR release workflow), then update the App Platform component tag and redeploy.
+
+## Option B — Build from GitHub
+
+Use this when you want App Platform to build from the repository `Dockerfile` — for example during development, on a feature branch, or when you prefer not to depend on GHCR.
+
+### 1. Create the app
+
+1. In the DigitalOcean control panel, go to **Apps → Create App**.
+2. Choose **GitHub** as the source and authorize repository access if prompted.
+3. Select repository **`nxtgrid/nxt-sts`**.
+4. Select branch **`main`**.
+5. App Platform detects the root **`Dockerfile`** and configures a Docker build automatically.
+
+### 2. Set HTTP port
+
+1. Set **HTTP port** to `8080`.
+2. Confirm App Platform detected the root **`Dockerfile`** for the Docker build.
+
+Configure the HTTP readiness probe after the first deploy only if you want stricter checks — see [Configure health checks](#configure-health-checks-settings-tab).
+
+### 3. Enable auto-deploy (optional)
+
+Turn on **Autodeploy** if App Platform should rebuild and redeploy on every push to the selected branch.
+
+### 4. Deploy
+
+Create the app. App Platform runs the multi-stage Docker build (Maven compile inside the build stage, JRE-only runtime image) and starts the service.
+
+## Configure health checks (Settings tab)
+
+Health checks are not configurable during initial app creation. After the first deploy, they appear under **Settings → Components → your web service → Health Checks**.
+
+### Default: TCP readiness check
+
+App Platform enables a **readiness** check by default: **TCP** on port `8080`, with no HTTP path or extra timing configured. This is the check that runs during deploy — it passes when something is listening on the port.
+
+For `nxt-sts`, that default is often enough. Spring Boot binds to port `8080` when the HTTP server starts, so a TCP probe on `8080` typically lets the first deploy succeed without any changes.
+
+**You do not need to change the default** if deploys complete and `/actuator/health` returns `UP` afterward.
+
+What you may see labelled "liveness" in the UI is sometimes still this default readiness probe (TCP, minimal settings) — not a separate restart-on-failure liveness probe. A true liveness check is only present if you explicitly added one via **Add liveness check**.
+
+### Optional upgrade: HTTP readiness check
+
+Switching the readiness check from **TCP** to **HTTP** is recommended for production, but not required:
+
+- **TCP** — port is open (may pass before Spring context is fully ready).
+- **HTTP** on `/actuator/health` — confirms the actuator reports `{"status":"UP"}`.
+
+To upgrade:
+
+1. Open **Apps** → your `nxt-sts` app → **Settings** tab.
+2. Under **Components**, click the web service component.
+3. Scroll to **Health Checks** and click **Edit**.
+4. Set **Type** to **HTTP**, **Port** to `8080`, **HTTP Path** to `/actuator/health`.
+5. Set timing to match the repository `Dockerfile` `HEALTHCHECK`:
+
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \
+  CMD wget -qO- http://localhost:8080/actuator/health || exit 1
+```
+
+| App Platform field | Value | Dockerfile flag |
+|---|---|---|
+| Initial delay | `15` seconds | `--start-period=15s` |
+| Period | `30` seconds | `--interval=30s` |
+| Timeout | `5` seconds | `--timeout=5s` |
+| Success threshold | `1` (default) | — (App Platform only; one passing probe marks the deploy healthy) |
+| Failure threshold | `9` (default) | — (App Platform only; no Docker equivalent) |
+
+**Success / failure thresholds:** keep DigitalOcean defaults **`1`** and **`9`**. With a `30` s period, nine consecutive failures means roughly 4.5 minutes of sustained probe failure before App Platform rolls back — a good match for JVM cold starts when combined with the `15` s initial delay. Lower the failure threshold only if you want faster rollback on a genuinely broken deploy.
+
+6. Click **Save** (triggers a redeploy with the new probe settings).
+
+### Liveness check (optional)
+
+A **liveness** probe is separate from readiness. It restarts the container if probes keep failing while the app is already running. You only need this if you explicitly click **Add liveness check** — the default TCP entry is not that.
+
+If you add one, use **HTTP** on port `8080` with path `/actuator/health`, and the same timing as the readiness check (`15` s initial delay, `30` s period, `5` s timeout).
+
+If you prefer infrastructure-as-code over the UI, the equivalent app-spec block is in [App spec reference](#app-spec-reference-optional) below.
+
+## Post-deploy verification
+
+Replace `<app-url>` with the App Platform default hostname or your custom domain.
+
+**Health check:**
+
+```bash
+curl -s https://<app-url>/actuator/health
+```
+
+Expected response:
+
+```json
+{"status":"UP"}
+```
+
+**Service index:**
+
+```bash
+curl -s https://<app-url>/
+```
+
+Returns JSON listing available endpoints including `/token`, `/swagger`, and `/actuator/health`.
+
+**Token generation smoke test:**
+
+```bash
+curl -s -X POST https://<app-url>/token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "TOP_UP",
+    "issueDate": "2024-03-15T10:30:00",
+    "randomNumber": 3,
+    "decoderKey": "0123456789ABCDEF",
+    "kwh": 0.5
+  }'
+```
+
+Use a real decoder key in non-test environments. Always call `/token` over HTTPS in production.
+
+## App spec reference (optional)
+
+Both options can also be defined in an App Platform spec file. Adjust `branch`, `tag`, and registry credentials to match your setup.
+
+**GHCR image:**
+
+```yaml
+name: nxt-sts
+services:
+  - name: api
+    image:
+      registry_type: GHCR
+      registry: ghcr.io
+      repository: nxtgrid/nxt-sts
+      tag: v1.0.0
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    health_check:
+      http_path: /actuator/health
+      port: 8080
+      initial_delay_seconds: 15
+      period_seconds: 30
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 9
+```
+
+**GitHub + Dockerfile:**
+
+```yaml
+name: nxt-sts
+services:
+  - name: api
+    github:
+      repo: nxtgrid/nxt-sts
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    health_check:
+      http_path: /actuator/health
+      port: 8080
+      initial_delay_seconds: 15
+      period_seconds: 30
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 9
+```
+
+## Failure modes
+
+| Symptom | Likely cause | What to check |
+|---|---|---|
+| Deploy fails pulling image | GHCR auth or missing release tag | Registry credentials; confirm a `v*.*.*` tag exists and the release workflow completed |
+| Health check never passes | TCP-only check or wrong path/port | In **Settings → Health Checks**, switch type to **HTTP**, port `8080`, path `/actuator/health`; set initial delay to `15` s if Spring Boot is still starting |
+| Build fails from GitHub | Docker build error in App Platform | Build logs; confirm `Dockerfile` and `./mvnw` are present on `main` |
+| 502/503 after deploy | Container crash on startup | App Platform runtime logs; verify Java 17 JRE image built successfully |
+| 400 on `/token` | Validation rejection | Swagger UI at `/swagger` for schema; check `randomNumber` (0–15) and 16-char hex `decoderKey` |
