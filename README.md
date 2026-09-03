@@ -65,7 +65,8 @@ DOCS_DEPLOY_TARGET=gh-pages npm run build
 2. Create a new page under `docs/repositories/<repo-name>.mdx`.
 3. Add the page to `docs/repositories/index.mdx`.
 4. Add the page to the `Repositories` section in `sidebars.ts`.
-5. Keep ordering consistent:
+5. Add the repo to the homepage list in `src/pages/index.tsx`.
+6. Keep ordering consistent:
    - `nxt-*` first, alphabetical
    - `lorawan-*` second, alphabetical
 

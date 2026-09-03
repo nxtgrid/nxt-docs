@@ -34,6 +34,15 @@ nxt-crm:
   last_synced_sha: f3ebb283502b8cfc273438cd462e3e914479b27b
   last_synced_at: 2026-05-06
 
+nxt-device-messaging:
+  repo: nxtgrid/nxt-device-messaging
+  branch: main
+  standard: single-repo
+  doc_mode: maintenance
+  status: standard-compliant
+  last_synced_sha: 212dcc06370daf4e8f63ed195dc4ab3a91fbc6e0
+  last_synced_at: 2026-09-03
+
 nxt-field-ops:
   repo: nxtgrid/nxt-field-ops
   branch: main

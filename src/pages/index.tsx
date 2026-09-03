@@ -39,6 +39,12 @@ const repos: Repo[] = [
     url: 'https://github.com/nxtgrid/nxt-crm',
   },
   {
+    name: 'nxt-device-messaging',
+    description:
+      'Standalone command-delivery service for field devices (plugins, Redis queue, signed webhooks).',
+    url: 'https://github.com/nxtgrid/nxt-device-messaging',
+  },
+  {
     name: 'nxt-field-ops',
     description:
       'Field technician PWA for installation, commissioning, and fault resolution workflows.',

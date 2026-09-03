@@ -1,0 +1,305 @@
+---
+title: DigitalOcean App Platform
+---
+
+# Deploy nxt-device-messaging on DigitalOcean App Platform
+
+This guide deploys `nxt-device-messaging` on [DigitalOcean App Platform](https://docs.digitalocean.com/products/app-platform/) as a web service. Choose one of two source options:
+
+1. **Pre-built GHCR image** — pull a released container from GitHub Container Registry.
+2. **GitHub repository build** — App Platform builds the image from the repository `Dockerfile` on each deploy.
+
+Both paths produce the same runtime: a Node 24 Fastify process listening on port **3100** with liveness at `/healthz`. App Platform **does not** run the Dockerfile `HEALTHCHECK`; configure the component probe (see below).
+
+**Instance count must stay 1** against a given Valkey/Redis (ADR-007). A second replica competes on engine timers and can split ChirpStack ACK vs uplink.
+
+Pin GHCR tags (`v0.1.2`, not only `latest`) in production. Images are multi-arch (`linux/amd64`, `linux/arm64`).
+
+Command routes (`/message/*`, `/token/generate`, `/plugin/provisioning`) need a non-empty `DEVICE_MESSAGING_API_KEY` if this component has a public URL. Ingress (`POST /ingress/:pluginId`) has **no** Bearer key — that is how ChirpStack calls you. For `calin-chirpstack`, set `CALIN_CHIRPSTACK_INGRESS_API_KEY` to the same `X-API-KEY` as the ChirpStack HTTP integration (unset = open).
+
+App Platform has **no volume mounts**. Put the JSON config artifact in **`DEVICE_MESSAGING_CONFIG_JSON`** (encrypt it). Plugin secrets stay in env (see `.env.example` in the source repo). Bindables expand inside env values, including inside that JSON string.
+
+Source runbook: `docs/deployment/digital-ocean-app-platform.md` in `nxt-device-messaging`.
+
+## Prerequisites
+
+- DigitalOcean account with App Platform access.
+- A Valkey or Redis instance this component can reach (same app, or an existing cluster). DigitalOcean managed Valkey/Redis **always needs TLS**.
+- For GHCR deploy: a published image at `ghcr.io/nxtgrid/nxt-device-messaging` (created when a `v*.*.*` tag is pushed).
+- For GitHub build: DigitalOcean authorized to access the `nxtgrid/nxt-device-messaging` repository.
+- If the GHCR package is private: a GitHub personal access token with `read:packages` scope, added as a container registry credential in App Platform.
+
+## Shared runtime settings
+
+Configure the HTTP port during app creation. Health checks are configured separately after the app exists — see [Configure health checks](#configure-health-checks-settings-tab) below.
+
+| Setting | Value |
+|---|---|
+| Component type | Web Service |
+| HTTP port | `3100` |
+| Instance count | **1** |
+| Public HTTP route | Often **on** if ChirpStack (or another network server) must POST ingress. If public, set `DEVICE_MESSAGING_API_KEY`. |
+
+### Always set
+
+| Variable | Notes |
+|---|---|
+| `PORT` | Must match the component HTTP port (`3100`). |
+| `DEVICE_MESSAGING_API_KEY` | Bearer for enqueue / GET / cancel / token / provisioning |
+| `DEVICE_MESSAGING_CONFIG_JSON` | Full JSON artifact (highest precedence). Start from `config.example.json`; production usually enables real plugins, not stubs. |
+| `DEVICE_MESSAGING_WEBHOOK_SECRET` | HMAC for outbound events; same value the adopter verifies |
+
+Example production-shaped artifact (secrets stay in env, not in this JSON):
+
+```json
+{
+  "$schemaVersion": "1",
+  "engine": { "enabled": true },
+  "logging": { "stdout": "json" },
+  "eventWebhook": {
+    "url": "https://your-app.example/hooks/device-messages"
+  },
+  "plugins": [
+    { "id": "calin-chirpstack" },
+    { "id": "nxt-sts" }
+  ]
+}
+```
+
+Omit `nxt-sts` if this process should not mint. Empty `plugins[]` (bundled default) means enqueue fails until you enable at least one.
+
+### Same app: Valkey or Redis
+
+Bind the database to **this** component. Use that database's component `name` from the app spec (example: `valkey`):
+
+| Variable | Value |
+|---|---|
+| `REDIS_HOST` | `${valkey.HOSTNAME}` |
+| `REDIS_PORT` | `${valkey.PORT}` |
+| `REDIS_USERNAME` | `${valkey.USERNAME}` if the cluster has one |
+| `REDIS_PASSWORD` | `${valkey.PASSWORD}` |
+| `REDIS_TLS` | `true` |
+
+`${valkey.HOSTNAME}` is the **public** cluster DNS. There is no `PRIVATE_HOSTNAME` bindable. The `private-` prefix (and `${valkey.DATABASE_PRIVATE_URL}`) only work if this App Platform app and the database are on the **same VPC**. If they are not, use `${valkey.HOSTNAME}` as-is. `${valkey.DATABASE_PRIVATE_URL}` is a full `rediss://…` string; this process does not parse it.
+
+Without `REDIS_TLS=true` the client connects, the socket drops, and you get `connected` logs about every 2 seconds, then `MaxRetriesPerRequestError` on shutdown.
+
+If **another process in the app already uses that instance** (logical DB `0`), set `REDIS_DB` to a free index so keys do not collide. Do not put this database's password in **app-wide** env if other components should not see it.
+
+### Same app: nxt-sts
+
+If [nxt-sts](../nxt-sts) is another component (example name `nxt-sts`), set **on this component**:
+
+```text
+NXT_STS_URL=${nxt-sts.PRIVATE_URL}
+```
+
+That is already `http://…:8080`. Do not use `*.ondigitalocean.app` for this hop. Keep STS **off the public internet** (`POST /token` has no API key). Add `{ "id": "nxt-sts" }` to `plugins[]` only if this process should mint. STS App Platform notes: [Deploy nxt-sts](../nxt-sts/digital-ocean).
+
+### Same app: the adopter API (webhook)
+
+If the operations API that receives delivery events is in this app, put its **private** URL in the config artifact:
+
+```json
+"eventWebhook": { "url": "${api.PRIVATE_URL}/device-messaging/events" }
+```
+
+Replace `api` with that component's `name` and the path with whatever the adopter exposes. HMAC still applies when `DEVICE_MESSAGING_WEBHOOK_SECRET` is set.
+
+A laptop running the adopter locally cannot be reached at `localhost` from this component. Use a tunnel, or omit `eventWebhook` and inspect `GET /message/:correlationId` / logs for that test.
+
+## Option A — Deploy from GHCR
+
+Use this when you want App Platform to run a pre-built release image without rebuilding from source.
+
+### 1. Create the app
+
+1. In the DigitalOcean control panel, go to **Apps → Create App**.
+2. Choose **Container Registry** (or **Deploy from a container image** depending on UI version).
+3. Select **GitHub Container Registry (GHCR)** as the registry type.
+4. Set the image to `ghcr.io/nxtgrid/nxt-device-messaging` with tag `latest` or a specific version (e.g. `v0.1.2`).
+
+Pinning a version tag is recommended for production; `latest` tracks the most recent release.
+
+### 2. Configure registry access (private packages only)
+
+If the GHCR package is not public:
+
+1. Create a GitHub PAT with `read:packages` scope.
+2. In App Platform, add a registry credential for GHCR (username: your GitHub username, password: the PAT).
+3. Attach the credential to the app component.
+
+### 3. Set HTTP port and scale
+
+1. Set **HTTP port** to `3100` (matches `EXPOSE 3100` in the Dockerfile).
+2. Leave the component as a **Web Service** (not a worker or job).
+3. Set **instance count** to **1**.
+
+Health checks are configured after app creation in **Settings** — see [Configure health checks](#configure-health-checks-settings-tab). Do not leave production on TCP-only: `/healthz` is the real liveness path.
+
+### 4. Deploy
+
+Review the plan and create the app. App Platform pulls the image and starts the container.
+
+To roll forward, push a new version tag in the repository (which triggers the GHCR release workflow), then update the App Platform component tag and redeploy.
+
+## Option B — Build from GitHub
+
+Use this when you want App Platform to build from the repository `Dockerfile` — for example during development, on a feature branch, or when you prefer not to depend on GHCR.
+
+### 1. Create the app
+
+1. In the DigitalOcean control panel, go to **Apps → Create App**.
+2. Choose **GitHub** as the source and authorize repository access if prompted.
+3. Select repository **`nxtgrid/nxt-device-messaging`**.
+4. Select branch **`main`**.
+5. App Platform detects the root **`Dockerfile`** and configures a Docker build automatically. Leave that as the build strategy (there is no Node buildpack path we use).
+
+### 2. Set HTTP port and scale
+
+1. Set **HTTP port** to `3100`.
+2. Confirm App Platform detected the root **`Dockerfile`**.
+3. Set **instance count** to **1**.
+
+### 3. Enable auto-deploy (optional)
+
+Turn on **Autodeploy** if App Platform should rebuild and redeploy on every push to the selected branch.
+
+### 4. Deploy
+
+Create the app. App Platform runs the multi-stage Docker build (pnpm compile in the build stage, `node:24-slim` runtime) and starts the service.
+
+## Configure health checks (Settings tab)
+
+Health checks are not configurable during initial app creation. After the first deploy, they appear under **Settings → Components → your web service → Health Checks**.
+
+App Platform enables a **readiness** check by default: **TCP** on port `3100`. That only proves something is listening. `/healthz` is process liveness (`{"ok":true}`) and still does **not** check Redis.
+
+Switch production to **HTTP**:
+
+1. Open **Apps** → your app → **Settings** tab.
+2. Under **Components**, click the web service component.
+3. Scroll to **Health Checks** and click **Edit**.
+4. Set **Type** to **HTTP**, **Port** to `3100`, **HTTP Path** to `/healthz`.
+5. Set timing to match the repository `Dockerfile` `HEALTHCHECK`:
+
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3100)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+```
+
+| App Platform field | Value | Dockerfile flag |
+|---|---|---|
+| Initial delay | `15` seconds | `--start-period=15s` |
+| Period | `30` seconds | `--interval=30s` |
+| Timeout | `5` seconds | `--timeout=5s` |
+| Success threshold | `1` (default) | — (App Platform only) |
+| Failure threshold | `9` (default) | — (App Platform only) |
+
+6. Click **Save** (triggers a redeploy with the new probe settings).
+
+A **liveness** probe is separate. Add one only if you click **Add liveness check**. If you add one, use the same HTTP path and timing.
+
+If you prefer infrastructure-as-code, see [App spec reference](#app-spec-reference-optional).
+
+## Post-deploy verification
+
+Replace `<app-url>` with the App Platform default hostname or your custom domain. Prefer the **private** URL for command-API smoke tests when the adopter lives in the same app.
+
+**Health check:**
+
+```bash
+curl -s https://<app-url>/healthz
+```
+
+Expected response:
+
+```json
+{"ok":true}
+```
+
+**OpenAPI:** `https://<app-url>/swagger`
+
+**Enqueue smoke test** (requires `DEVICE_MESSAGING_API_KEY` and an enabled plugin — stubs only if you left them in `DEVICE_MESSAGING_CONFIG_JSON`):
+
+```bash
+curl -sS -X POST https://<app-url>/message/enqueue \
+  -H "Authorization: Bearer $DEVICE_MESSAGING_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "commandType": "READ_CREDIT",
+    "priority": 1,
+    "pluginId": "stub-push",
+    "networkId": 42,
+    "correlationId": "do-smoke-1",
+    "device": { "type": "ELECTRICITY_METER", "externalReference": "m-1" }
+  }'
+```
+
+A 201 means the job was accepted. Terminal success still depends on the plugin and the webhook. After a real successful delivery, `GET /message/do-smoke-1` 404s — that is expected.
+
+## App spec reference (optional)
+
+Adjust `branch`, `tag`, bindable names, and encrypted env to match your setup. `DEVICE_MESSAGING_CONFIG_JSON` is omitted here — paste the artifact in the control panel (encrypted).
+
+**GHCR image:**
+
+```yaml
+name: nxt-device-messaging
+services:
+  - name: device-messaging
+    image:
+      registry_type: GHCR
+      registry: ghcr.io
+      repository: nxtgrid/nxt-device-messaging
+      tag: v0.1.2
+    http_port: 3100
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    health_check:
+      http_path: /healthz
+      port: 3100
+      initial_delay_seconds: 15
+      period_seconds: 30
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 9
+    envs:
+      - key: PORT
+        value: "3100"
+      - key: REDIS_HOST
+        value: ${valkey.HOSTNAME}
+      - key: REDIS_PORT
+        value: ${valkey.PORT}
+      - key: REDIS_PASSWORD
+        value: ${valkey.PASSWORD}
+      - key: REDIS_TLS
+        value: "true"
+      - key: NXT_STS_URL
+        value: ${nxt-sts.PRIVATE_URL}
+```
+
+**GitHub + Dockerfile:** same service block, but replace `image:` with:
+
+```yaml
+    github:
+      repo: nxtgrid/nxt-device-messaging
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+```
+
+## Failure modes
+
+| Symptom | Likely cause | What to check |
+|---|---|---|
+| Deploy fails pulling image | GHCR auth or missing release tag | Registry credentials; confirm a `v*.*.*` tag exists and the release workflow completed |
+| Health check never passes | TCP-only check or wrong path/port | **Settings → Health Checks**: HTTP, port `3100`, path `/healthz`; confirm `PORT=3100` |
+| Build fails from GitHub | Docker build error in App Platform | Build logs; confirm `Dockerfile`, `pnpm-lock.yaml`, and `packages/contract/` are on `main` |
+| `/healthz` 200 but nothing delivers | Redis TLS/auth, empty `plugins[]`, or `engine.enabled: false` | `REDIS_TLS=true`; bind Valkey to **this** component; inspect `DEVICE_MESSAGING_CONFIG_JSON` |
+| `connected` every ~2s then `MaxRetriesPerRequestError` | Missing `REDIS_TLS=true` on DigitalOcean Valkey | Set `REDIS_TLS=true`; do not use `${valkey.DATABASE_PRIVATE_URL}` as `REDIS_HOST` |
+| Boot crash naming an env key | Plugin in `plugins[]` without its secrets | `.env.example` for that plugin id (`CHIRPSTACK_*`, `NXT_STS_URL`, `CALIN_API_*`) |
+| 401 on `/message/enqueue` | Missing or wrong Bearer | `DEVICE_MESSAGING_API_KEY` on this component; `Authorization: Bearer …` |
+| ChirpStack callbacks 401 / ignored | Ingress key mismatch or public route off | `CALIN_CHIRPSTACK_INGRESS_API_KEY` vs integration `X-API-KEY`; HTTP integration URL is `/ingress/calin-chirpstack` |
+| Duplicate/split LoRaWAN results | More than one replica | Instance count **1** |
+| Cannot mint tokens | STS not reachable or plugin omitted | `NXT_STS_URL=${nxt-sts.PRIVATE_URL}`; `{ "id": "nxt-sts" }` in `plugins[]` |

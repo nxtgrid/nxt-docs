@@ -13,13 +13,13 @@ Both paths produce the same runtime: a stateless Spring Boot service listening o
 
 `POST /token` has **no API key**. Prefer an internal component with **no public HTTP route**. Same-app callers should use `${nxt-sts.PRIVATE_URL}` (already `http://…:8080`), not `*.ondigitalocean.app`. Pin GHCR tags (`v1.0.4`, not only `latest`) in production.
 
-If [nxt-device-messaging](https://github.com/nxtgrid/nxt-device-messaging) is another component in the same app, set **on that component** (not on STS):
+If [nxt-device-messaging](../nxt-device-messaging) is another component in the same app, set **on that component** (not on STS):
 
 ```text
 NXT_STS_URL=${nxt-sts.PRIVATE_URL}
 ```
 
-Enable `{ "id": "nxt-sts" }` in device-messaging `plugins[]` only if that process should mint tokens. Source detail: `docs/deployment/digital-ocean-app-platform.md` in `nxt-sts`.
+Enable `{ "id": "nxt-sts" }` in device-messaging `plugins[]` only if that process should mint tokens. Device-messaging App Platform notes: [Deploy nxt-device-messaging](../nxt-device-messaging/digital-ocean).
 
 ## Prerequisites
 

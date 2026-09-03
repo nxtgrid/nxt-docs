@@ -31,6 +31,15 @@ const sidebars: SidebarsConfig = {
         },
         'repositories/nxt-control-room',
         'repositories/nxt-crm',
+        {
+          type: 'category',
+          label: 'nxt-device-messaging',
+          link: {
+            type: 'doc',
+            id: 'repositories/nxt-device-messaging',
+          },
+          items: ['repositories/nxt-device-messaging/digital-ocean'],
+        },
         'repositories/nxt-field-ops',
         'repositories/nxt-gis',
         {
