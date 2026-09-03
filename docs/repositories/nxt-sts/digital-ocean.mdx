@@ -9,7 +9,17 @@ This guide deploys `nxt-sts` on [DigitalOcean App Platform](https://docs.digital
 1. **Pre-built GHCR image** — pull a released container from GitHub Container Registry.
 2. **GitHub repository build** — App Platform builds the image from the repository `Dockerfile` on each deploy.
 
-Both paths produce the same runtime: a stateless Spring Boot service listening on port **8080** with health checks at `/actuator/health`.
+Both paths produce the same runtime: a stateless Spring Boot service listening on port **8080** with health checks at `/actuator/health`. App Platform **does not** run the Dockerfile `HEALTHCHECK`; configure the component probe (see below).
+
+`POST /token` has **no API key**. Prefer an internal component with **no public HTTP route**. Same-app callers should use `${nxt-sts.PRIVATE_URL}` (already `http://…:8080`), not `*.ondigitalocean.app`. Pin GHCR tags (`v1.0.4`, not only `latest`) in production.
+
+If [nxt-device-messaging](https://github.com/nxtgrid/nxt-device-messaging) is another component in the same app, set **on that component** (not on STS):
+
+```text
+NXT_STS_URL=${nxt-sts.PRIVATE_URL}
+```
+
+Enable `{ "id": "nxt-sts" }` in device-messaging `plugins[]` only if that process should mint tokens. Source detail: `docs/deployment/digital-ocean-app-platform.md` in `nxt-sts`.
 
 ## Prerequisites
 
@@ -26,6 +36,7 @@ Configure the HTTP port during app creation. Health checks are configured separa
 |---|---|
 | Component type | Web Service |
 | HTTP port | `8080` |
+| Public HTTP route | Prefer **off** (`POST /token` is unauthenticated) |
 
 Optional environment variables (safe defaults are committed in the repository):
 
@@ -45,7 +56,7 @@ Use this when you want App Platform to run a pre-built release image without reb
 1. In the DigitalOcean control panel, go to **Apps → Create App**.
 2. Choose **Container Registry** (or **Deploy from a container image** depending on UI version).
 3. Select **GitHub Container Registry (GHCR)** as the registry type.
-4. Set the image to `ghcr.io/nxtgrid/nxt-sts` with tag `latest` or a specific version (e.g. `v1.0.0`).
+4. Set the image to `ghcr.io/nxtgrid/nxt-sts` with tag `latest` or a specific version (e.g. `v1.0.4`). Images are multi-arch (`linux/amd64`, `linux/arm64`).
 
 Pinning a version tag is recommended for production; `latest` tracks the most recent release.
 
@@ -130,7 +141,7 @@ To upgrade:
 
 ```dockerfile
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \
-  CMD wget -qO- http://localhost:8080/actuator/health || exit 1
+  CMD curl -fsS "http://127.0.0.1:${SERVER_PORT}/actuator/health" || exit 1
 ```
 
 | App Platform field | Value | Dockerfile flag |
@@ -183,7 +194,7 @@ Returns JSON listing available endpoints including `/token`, `/swagger`, and `/a
 curl -s -X POST https://<app-url>/token \
   -H "Content-Type: application/json" \
   -d '{
-    "type": "TOP_UP",
+    "type": "TOP_UP_KWH",
     "issueDate": "2024-03-15T10:30:00",
     "randomNumber": 3,
     "decoderKey": "0123456789ABCDEF",
@@ -191,7 +202,7 @@ curl -s -X POST https://<app-url>/token \
   }'
 ```
 
-Use a real decoder key in non-test environments. Always call `/token` over HTTPS in production.
+Use a real decoder key in non-test environments. Prefer the private URL for this call. If you did attach a public route for a one-off smoke test, always use HTTPS and remove the route afterward.
 
 ## App spec reference (optional)
 
@@ -207,7 +218,7 @@ services:
       registry_type: GHCR
       registry: ghcr.io
       repository: nxtgrid/nxt-sts
-      tag: v1.0.0
+      tag: v1.0.4
     http_port: 8080
     instance_count: 1
     instance_size_slug: basic-xxs
@@ -253,4 +264,5 @@ services:
 | Health check never passes | TCP-only check or wrong path/port | In **Settings → Health Checks**, switch type to **HTTP**, port `8080`, path `/actuator/health`; set initial delay to `15` s if Spring Boot is still starting |
 | Build fails from GitHub | Docker build error in App Platform | Build logs; confirm `Dockerfile` and `./mvnw` are present on `main` |
 | 502/503 after deploy | Container crash on startup | App Platform runtime logs; verify Java 17 JRE image built successfully |
-| 400 on `/token` | Validation rejection | Swagger UI at `/swagger` for schema; check `randomNumber` (0–15) and 16-char hex `decoderKey` |
+| 400 on `/token` | Validation rejection | Swagger UI at `/swagger`; check `type` (`TOP_UP_KWH` or deprecated `TOP_UP`), `randomNumber` (0–15), 16-char hex `decoderKey`, `kwh` ≤ 1820162.4, `powerLimit` ≤ 18201624 |
+| Caller cannot reach STS | Public route disabled (expected) or wrong internal URL | Use `${nxt-sts.PRIVATE_URL}` / Compose `http://nxt-sts:8080`; do not use `*.ondigitalocean.app` for the hop |

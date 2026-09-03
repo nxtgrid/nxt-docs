@@ -6,7 +6,7 @@ title: nxt-sts
 
 ## Purpose
 
-`nxt-sts` is a stateless Spring Boot microservice that generates prepaid metering tokens compliant with IEC 62055-41 (STS). It exposes a small REST API consumed by backend integration layers in prepaid utility workflows.
+`nxt-sts` is a stateless Spring Boot microservice that generates prepaid metering tokens compliant with IEC 62055-41 (STS). It exposes a small REST API. Typical callers are other NXT services (today: `nxt-device-messaging` via the `nxt-sts` plugin) rather than browsers or public clients.
 
 ## Scope
 
@@ -17,23 +17,28 @@ title: nxt-sts
   - Self-describing API surface (OpenAPI/Swagger) and health endpoint for orchestration.
 - Out of scope:
   - Customer payment UX and transaction orchestration (handled by other services/apps).
-  - Meter communication and post-issuance delivery channels.
+  - Meter communication and post-issuance delivery (owned by `nxt-device-messaging` when used in the suite).
   - Token persistence, replay tracking, or meter state management (each request is a pure function).
+  - Authentication — `POST /token` has no API key; keep the process off the public internet.
 
 ## What this service does in production
 
 - Accepts token-issue requests at `POST /token` and returns a 20-digit IEC 62055-41 token string.
-- Dispatches requests to a matching `TokenStrategy` implementation (`TOP_UP`, `CLEAR_CREDIT`, `CLEAR_TAMPER`, `SET_POWER_LIMIT`).
-- Validates input before generation (token type, required fields, `randomNumber` range 0–15, decoder key format, ISO 8601 issue date).
+- Dispatches requests to a matching `TokenStrategy` (`TOP_UP_KWH`, `CLEAR_CREDIT`, `CLEAR_TAMPER`, `SET_POWER_LIMIT`). Deprecated wire value `TOP_UP` is accepted and normalized to `TOP_UP_KWH` at deserialize time.
+- Validates input before generation (token type, required fields, non-negative amounts, STS maxima, `randomNumber` 0–15, decoder key format, ISO 8601 issue date).
+- Encodes `issueDate` as UTC wall-clock fields for the STS token identifier (TID). TID is **minute-granular** — seconds do not differentiate tokens.
 - Returns structured JSON error responses with HTTP 400/500 status codes on failure.
-- Exposes operational endpoints: `GET /` (service index), `GET /swagger` (Swagger UI), `GET /actuator/health`.
+- Exposes operational endpoints: `GET /` (service index, including version from `pom.xml`), `GET /swagger` (Swagger UI), `GET /actuator/health`.
+
+Current release: **1.0.4**. GHCR images are multi-arch (`linux/amd64` and `linux/arm64`).
 
 ## Primary workflows
 
-- Top-up token workflow: client submits `type=TOP_UP` with `kwh`, issue date, random number, and decoder key; service returns a generated 20-digit token.
+- Top-up token workflow: client submits `type=TOP_UP_KWH` with `kwh`, issue date, random number, and decoder key; service returns a generated 20-digit token.
 - Clear operation workflow: client submits `CLEAR_CREDIT` or `CLEAR_TAMPER`; service builds class-2 token structures and returns token.
 - Power-limit workflow: client submits `SET_POWER_LIMIT` with `powerLimit`; service generates corresponding class-2 control token.
-- Integration discovery workflow: client calls `GET /` or opens `/swagger` to inspect available endpoints and request schema before wiring backend callers.
+- Sidecar mint workflow: a Compose/App Platform neighbor (for example `nxt-device-messaging`) calls `http://nxt-sts:8080` or `${nxt-sts.PRIVATE_URL}` and never exposes STS on a public HTTP route.
+- Integration discovery workflow: client calls `GET /` or opens `/swagger` to inspect available endpoints and request schema before wiring callers.
 
 ## Setup and run
 
@@ -42,37 +47,43 @@ title: nxt-sts
 - Build: `./mvnw clean package -DskipTests` (produces `target/nxt-sts-*.jar`).
 - Run locally (dev): `./mvnw spring-boot:run` (default port 8080).
 - Run packaged JAR: `java -jar target/nxt-sts-*.jar` (override port with `--server.port=8084`).
-- Docker: `docker build -t nxt-sts . && docker run -p 8080:8080 nxt-sts` (multi-stage Dockerfile; no pre-built JAR required).
-- Released container image: `ghcr.io/nxtgrid/nxt-sts:latest` (published on version tags such as `v1.0.0`).
+- Docker: `docker build -t nxt-sts . && docker run -p 8080:8080 nxt-sts` (multi-stage Dockerfile on `eclipse-temurin:17-*-jammy`; no pre-built JAR required).
+- Compose (this repo, or copy the `nxt-sts` service as a sidecar): `docker compose up`. On the Compose network, callers use `http://nxt-sts:8080`. Pin `image` to a release tag in production; drop `ports` if STS should stay internal.
+- Released container image: `ghcr.io/nxtgrid/nxt-sts:latest` (published on version tags such as `v1.0.4`).
+
+Custom listen port: set `SERVER_PORT` and map the same host port. The image `HEALTHCHECK` probes `http://127.0.0.1:${SERVER_PORT}/actuator/health`. PaaS platforms ignore that Dockerfile check — configure the platform HTTP probe instead.
 
 ## Deployment
 
 Platform-specific deployment guides live under this repository section:
 
-- [DigitalOcean App Platform](./nxt-sts/digital-ocean) — deploy from GHCR or build from the GitHub repository.
+- [DigitalOcean App Platform](./nxt-sts/digital-ocean) — deploy from GHCR or build from the GitHub repository; prefer an internal component with no public HTTP route.
+
+Source runbook: `docs/deployment/` in the repository (App Platform private-URL wiring, including same-app `nxt-device-messaging`).
 
 ## APIs and interfaces
 
-- `POST /token` — primary token generation endpoint (`TokenController`).
+- `POST /token` — primary token generation endpoint (`TokenController`). **Unauthenticated.**
 - Request contract (`TokenRequest`):
-  - `type` (`TOP_UP`, `CLEAR_CREDIT`, `CLEAR_TAMPER`, `SET_POWER_LIMIT`)
-  - `issueDate` (ISO 8601, e.g. `2024-03-15T10:30:00`)
-  - `randomNumber` (integer 0–15; STS 4-bit RND field)
-  - `decoderKey` (16-character hex string)
-  - `kwh` (required for `TOP_UP`)
-  - `powerLimit` (required for `SET_POWER_LIMIT`)
+  - `type` — `TOP_UP_KWH`, `CLEAR_CREDIT`, `CLEAR_TAMPER`, `SET_POWER_LIMIT`. Deprecated alias: `TOP_UP` → `TOP_UP_KWH`.
+  - `issueDate` — ISO 8601 (fractional seconds and `Z`/offset suffixes accepted; offset is ignored; fields are UTC for TID).
+  - `randomNumber` — integer 0–15 (STS 4-bit RND field). Advance per meter for same-minute issues; meters also reject reused RND (anti-replay).
+  - `decoderKey` — 16-character hex string.
+  - `kwh` — required for `TOP_UP_KWH` (and deprecated `TOP_UP`). Must be ≥ 0 and ≤ **1820162.4**. Encoded in 0.1 kWh steps: values `< 1` are ceiled to the next tenth; values `≥ 1` are truncated to a tenth. Prefer multiples of 0.1.
+  - `powerLimit` — required for `SET_POWER_LIMIT`. Integer ≥ 0 and ≤ **18201624** (same 16-bit STS field as credit, **not** scaled by 10).
 - Response contract: `{ "token": "<20-digit-token>" }`.
-- Error contract: structured JSON with HTTP 400 (validation/unknown type) or 500 (unexpected generation failure).
+- Error contract: structured JSON with HTTP 400 (validation, unknown type, STS maxima) or 500 (unexpected generation failure).
 - Canonical API reference: Swagger UI at `/swagger` after starting the service.
 
 ## Integrations and dependencies
 
+- Downstream consumers: `nxt-device-messaging` (`nxt-sts` plugin, `NXT_STS_URL`); any other HTTP caller that mints tokens and keeps decoder keys itself.
 - Core framework: Spring Boot 3.4 (web, validation, actuator).
-- Cryptographic/token stack: Bouncy Castle + STS domain/generator classes under `co.nxtgrid.token.*`.
-- Time/date parsing: Joda-Time for IEC 62055-41 date handling.
-- API documentation: springdoc-openapi (Swagger UI + OpenAPI JSON).
+- Cryptographic/token stack: Bouncy Castle + STS domain/generator classes under `co.nxtgrid.token.*` (Spring-free; intended future `sts-core` extract). Wrapper layer is `co.nxtgrid.api.*` and `co.nxtgrid.strategy.*`.
+- Time/date parsing: Joda-Time for IEC 62055-41 date handling, forced to UTC in `StrategySupport`.
+- API documentation: springdoc-openapi (Swagger UI + OpenAPI JSON). Service version on `GET /` is filtered from `pom.xml`.
 - CI: GitHub Actions runs `./mvnw verify` on push/PR to `main`.
-- Container releases: tagged versions publish to GHCR via `.github/workflows/release.yml`.
+- Container releases: tagged versions publish multi-arch images to GHCR via `.github/workflows/release.yml`.
 - Service lineage: derivative work from `NectarAPI/tokens-service` (documented in `NOTICE`, AGPL-3.0).
 
 ## Operations notes
@@ -80,11 +91,20 @@ Platform-specific deployment guides live under this repository section:
 - Default HTTP port is 8080; override via `SERVER_PORT` env var or `--server.port`.
 - Health check path for load balancers and orchestrators: `/actuator/health` (returns `{"status":"UP"}`).
 - Decoder keys are meter-specific secrets — transmit only over HTTPS; do not log or persist in plaintext.
+- Do not publish `POST /token` on the public internet. Compose: omit `ports`. App Platform: no public HTTP route; use `${nxt-sts.PRIVATE_URL}`.
+- Change impact map:
+  - if token `type` names change, update enqueue/mint callers (`nxt-device-messaging` plugin and any direct HTTP clients); `TOP_UP` remains a deprecated alias only.
+  - if kWh quantization or STS maxima change, billing/ledger amounts and meter-accepted tokens can diverge.
+  - if listen port or health path changes, Compose `depends_on: service_healthy` and App Platform probes break.
+
 - Key failure modes to check first:
   - invalid or missing token type / type-specific fields (`kwh`, `powerLimit`),
+  - `kwh` or `powerLimit` negative, or above the STS maxima (400 on `kwh` / `powerLimit`),
+  - same-minute duplicate tokens because `randomNumber` was not advanced,
   - `randomNumber` outside 0–15 (STS protocol constraint, not an arbitrary API limit),
   - malformed `decoderKey` (must be exactly 16 hex characters),
-  - unparseable `issueDate` format.
+  - unparseable `issueDate` format,
+  - Docker healthcheck failing after a custom `SERVER_PORT` because the platform probe still hits 8080.
 
 ## Source of truth
 
@@ -92,9 +112,12 @@ Platform-specific deployment guides live under this repository section:
 - Application bootstrap: `src/main/java/co/nxtgrid/StsApplication.java`
 - Token endpoint: `src/main/java/co/nxtgrid/api/TokenController.java`
 - Request/response models: `src/main/java/co/nxtgrid/api/TokenRequest.java`, `TokenResponse.java`
+- Type aliasing: `src/main/java/co/nxtgrid/api/TokenType.java`, `TokenTypeDeserializer.java`
 - Strategy implementations: `src/main/java/co/nxtgrid/strategy/`
+- Amount / MPL maxima: `src/main/java/co/nxtgrid/token/domain/Amount.java`, `MaximumPowerLimit.java`
 - Runtime config: `src/main/resources/application.properties`
-- Build/runtime dependencies: `pom.xml`
-- Container packaging: `Dockerfile`
+- Build/runtime dependencies: `pom.xml` (version **1.0.4**)
+- Container packaging: `Dockerfile`, `docker-compose.yml`
 - Token capability matrix: `docs/capabilities.md`
+- Deployment: `docs/deployment/`
 - Operator runbook (build, test, Docker, API): `README.md`
