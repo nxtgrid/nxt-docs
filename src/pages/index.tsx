@@ -17,7 +17,7 @@ const repos: Repo[] = [
   {
     name: 'nxt-ai-assistant',
     description:
-      'Production-ready chat orchestrator with Gemini, dynamic instructions, RAG, and MCP integration.',
+      'Telegram-first operations assistant (prompts, Skills, tools, optional MCP gateway).',
     url: 'https://github.com/nxtgrid/nxt-ai-assistant',
   },
   {

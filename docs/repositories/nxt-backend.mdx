@@ -79,7 +79,7 @@ Nx 23, Node **24.x**, pnpm 11. Projects you build: `api`, `worker`, `core`.
 
 - Serve: `pnpm exec nx serve api` or `worker`. Check: `pnpm exec nx run-many -t lint typecheck build test -p api,worker,core`.
 - Config is read **before** the Nest app is created (`loadConfig()`). Order: `NXT_CONFIG_JSON` (inline) → `NXT_CONFIG_URL` (reserved, not implemented) → `NXT_CONFIG_PATH` (file) → bundled `config.default.json`. Secrets: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and so on.
-- Typical App Platform shape: `api` and `worker` built from **this** repo (Node.js buildpack). Add `nxt-device-messaging` as a third component only when metering is on. Details in the source repo: `docs/deployment/digital-ocean-buildpack.md`, `docs/deployment/supabase.md`.
+- Typical App Platform shape: `api` and `worker` built from **this** repo (Node.js buildpack). Add `nxt-device-messaging` as a third component only when metering is on. Hub: [DigitalOcean App Platform](./nxt-backend/digital-ocean). Source also has `docs/deployment/supabase.md`.
 - You can run a new `api` beside an old one and switch traffic. Do **not** run two `worker` processes that would execute the same jobs twice — stop the old worker, then start the new one.
 
 ## How changes flow through the monorepo
@@ -114,5 +114,5 @@ Nx 23, Node **24.x**, pnpm 11. Projects you build: `api`, `worker`, `core`.
 - Processes: `apps/api/src/modules/app.module.ts`, `apps/worker/src/modules/app.module.ts`
 - Config: `libs/core/src/config/`, `config.default.json`
 - Schema: `supabase/migrations/`, `supabase/seed.sql`
-- Deploy: `docs/deployment/`
+- Deploy: `docs/deployment/` (hub: [DigitalOcean App Platform](./nxt-backend/digital-ocean))
 - Older tree: `legacy/`

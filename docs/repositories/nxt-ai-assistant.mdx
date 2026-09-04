@@ -6,75 +6,135 @@ title: nxt-ai-assistant
 
 ## Purpose
 
-`nxt-ai-assistant` (Anansi) is a production AI orchestration platform for NXT support and operations conversations. It combines Gemini-based chat orchestration, role-aware instruction management, RAG ingestion/retrieval, and MCP-backed tool execution in one deployable system.
+`nxt-ai-assistant` is a chat assistant for mini-grid operations. Customers and staff talk to it in Telegram (and via HTTP). It can check meters, mint or resend tokens, draft a site layout, pull KPIs, open a ticket, and run multi-step automations that operators author themselves.
+
+The git repository and most process names still say **Anansi**. The admin login screen calls the product **Mini-Grids Assistant**.
+
+It is a **chat orchestrator with tools**, not a hosted model. Gemini is the default LLM; you can point generation at OpenRouter instead. Mini-grid behavior comes from the tools, prompts, and knowledge you attach — not from a custom model.
 
 ## Scope
 
 - In scope:
-  - Chat orchestration API with conversation state, tool-calling, and role-based behavior.
-  - MCP bridge/tool server layer for database, observability, and external workflow integrations.
-  - RAG ingestion pipeline for GitHub/Drive/Telegram-sourced knowledge.
-  - Admin/ops surfaces and shared code used across orchestrator, tools, and ingestion modules.
+  - Chat orchestrator (`chat_orchestrator/`, port **8000**): conversations, Telegram webhook, scheduled jobs, skill-builder helpers. Also hosts the optional **MCP gateway** (mounted at `/mcp-gateway`) so staff can call the same tools from Claude/Codex — that gateway is **not** a third App Platform service.
+  - Tool layer (`mcp_servers/`): MCP servers for meters, grid design, Jira, Grafana, payments, solar, knowledge, and more. Most servers are **off** until you set `{SERVER}_ENABLED`.
+  - Prompt library (`shared/prompts/`): bundled defaults, in-app edits, optional Google Doc per prompt, plus **context modules** (built-in, curated, or an attached Drive file) that can pin to a prompt or a skill.
+  - RAG ingestion (`rag_pipeline/`): GitHub, Google Drive, Telegram, Grafana — usually as a scheduled job inside the orchestrator, not a third process.
+  - Admin UI (`anansi_app/`, NiceGUI, port **8501**): history, prompts, settings, Skills, broadcasts, grid design, and an in-app chat widget.
+  - Customer chat widget (`mini_app/`).
 - Out of scope:
-  - End-user app UI implementation outside exposed mini/admin app surfaces.
-  - Independent model hosting (delegates core model inference to Gemini APIs).
+  - Hosting the LLM yourself (calls Gemini or OpenRouter).
+  - WhatsApp (not supported yet; Telegram is the messenger surface).
+  - Being your metering or billing system — those stay in [`nxt-backend`](./nxt-backend) / [`nxt-device-messaging`](./nxt-device-messaging) (or whatever API you wire through MCP).
+  - Writing to the **auth** database. This app reads operational records there; its own tables and migrations live in the **chat** database.
 
 ## What this system does in production
 
-- Accepts user chat requests (API/Telegram-driven), builds role-aware context, and routes prompts to Gemini.
-- Resolves tools through the MCP bridge and executes permitted actions with API-key protection and sanitized errors.
-- Pulls dynamic support instructions and artifacts (Google Docs + database-backed sources) without redeploy for instruction changes.
-- Uses RAG ingestion/retrieval to ground responses in indexed operational knowledge.
+- Accepts a message on `POST /chat` (or `POST /`) from Telegram or an API caller, loads history, resolves prompts, calls the LLM, runs tools if asked, and replies.
+- Treats **staff** vs **customer** by `organization_id` vs `STAFF_ORG_ID` (default `2`): staff get the staff prompt and full tools; customers get a narrower support prompt.
+- Lets operators edit prompts in the admin app without a redeploy (about a minute to take effect). Bundled files always remain the fallback. A Google Doc is optional per prompt.
+- Escalates conversations that need a human: Jira when it is configured and healthy, otherwise an internal ticket ledger so routing still works.
+- Runs operator-built **Skills** (chat-authored steps, schedulable) and hardcoded **expert** flows such as `/lpp` (site package), `/analyze` / `/kpi` / `/report`.
+- Optionally exposes a **per-user MCP endpoint** at `/mcp-gateway/mcp` (Google sign-in, no shared API key). Equipment control, payments, and messaging tools stay off that endpoint even when they are on for the bot.
+
+Production App Platform is **two** services (orchestrator + admin). Local Compose still runs orchestrator and a separate tools HTTP bridge.
+
+Keep **one replica** of the orchestrator: in-flight Telegram workflows, alert correlation locks, and similar state live in that process.
 
 ## Primary workflows
 
-- Chat workflow: user request -> instruction/context assembly -> Gemini response with optional tool execution -> final response.
-- Tool execution workflow: orchestrator requests tool call -> `mcp_servers/bridge.py` maps to server/tool registry -> returns sanitized result.
-- Knowledge refresh workflow: RAG ingestion jobs sync sources and update retrieval corpus used by orchestrator.
+- **Customer or staff chat:** Telegram (secret token) or `X-Api-Key` → orchestrator → prompt resolve (DB override → optional Doc → bundled file) plus any attached context modules → LLM → optional tool calls → persist in the chat database → reply (HTTP body for API; Telegram Bot API for the bot).
+- **Admin chat widget:** signed-in operator in `anansi-app` talks over HTTP (`source=web`) with page context (grid design, tickets). Same orchestrator as Telegram.
+- **Site package (`/lpp`):** GPS + site name → GRID3 boundary (if you have the GeoPackages) → layout engine → Google Doc. Needs Google credentials; GRID3 files are optional.
+- **Skill:** operator authors steps in the admin builder → validate/summarize via orchestrator → save → run now or on a schedule with nobody in the loop. Skills can pin the same context modules as prompts.
+- **External MCP client:** `claude mcp add --transport http … /mcp-gateway/mcp` → Google OAuth in the browser → tools filtered to that user’s org. Unset `MCP_GATEWAY_BASE_URL` or `MCP_GATEWAY_TOKEN_SECRET` and the gateway is never mounted; chat is unchanged.
+- **Knowledge refresh:** APScheduler in the orchestrator runs RAG ingest (GitHub / Drive / Grafana) when those flags are on. Manual: `python rag_pipeline/ingestion/batch_ingest.py` inside that service.
 
 ## Setup and run
 
 - Repository: [github.com/nxtgrid/nxt-ai-assistant](https://github.com/nxtgrid/nxt-ai-assistant)
-- Local multi-service dev runtime is provided via `docker-compose.yml`:
-  - `chat-orchestrator` (FastAPI on port 8000)
-  - `tools-service` (MCP bridge API on port 8080)
-- Python 3.11+ is required; project configuration and linting are defined in `pyproject.toml`.
-- Additional local orchestration scripts (`dev.sh`, `setup_shared.sh`) support development bootstrap.
+- Python **3.11+**. Gemini API key for the default provider. Chat database (Supabase) plus a separate **read-only** auth/ops database. Google service account if you use Docs/Drive.
+- Shared package: `./setup_shared.sh` and `PYTHONPATH` (see README). Per-service venvs are documented there too.
+- Local Compose (orchestrator **8000**, tools **8080**):
+
+  ```bash
+  docker compose up
+  ```
+
+  `TOOLS_SERVICE_URL=http://tools-service:8080` is set for the orchestrator container.
+- Health: `GET http://localhost:8000/health` → `status: healthy`. Admin: `GET http://localhost:8501/healthz`. Gateway (if mounted): `GET /mcp-gateway/healthz`.
+
+Full env catalog: `chat_orchestrator/.env.example`, `mcp_servers/.env.example`, `shared/config/flag_registry.py`. Settings in the admin app are the usual way to change operator flags; credentials stay in the platform env and are not written back.
+
+Chat-database migrations live in `db/migrations/` and are **not** applied by deploy. An unapplied migration typically fails at runtime (`UndefinedTableError`), not at build time.
+
+## Deployment
+
+- [DigitalOcean App Platform](./nxt-ai-assistant/digital-ocean) — two components, one replica each; example spec `.do/app.example.yaml`. Ingress path prefixes matter: a new public path that is not listed falls through to the admin login page.
 
 ## APIs and interfaces
 
-- Chat orchestrator API is served from `chat_orchestrator/orchestrator/api/app.py` (includes health and chat-related endpoints, auth checks, scheduler hooks, and optional mini-app routes).
-- MCP bridge API (`mcp_servers/bridge.py`) exposes:
-  - server discovery
-  - tool listing
-  - tool execution endpoints
-  - Gemini function-format endpoint wrappers
-- Service-to-service auth is API-key based (`X-API-Key` / Telegram secret header path in orchestrator, API key header in tools bridge).
+Orchestrator (`chat_orchestrator/orchestrator/api/app.py`):
+
+| Method | Path | Auth | Role |
+|---|---|---|---|
+| `GET` | `/health` | none | Liveness (`status: healthy`) plus a ticket-correlation failure count. |
+| `POST` | `/` or `/chat` | `X-Api-Key` or Telegram secret | Main chat. API key: JSON body response. Telegram: reply via Bot API. |
+| `POST` | `/skills/validate`, `/skills/summarize`, `/skills/dispatch-schedule` | API key | Skill builder (admin). |
+| `POST` | `/chat/notify` | `X-Notify-Secret` | External alerts (n8n / VRM / Grafana). Fail-closed if the secret is unset. |
+| `POST` | `/webhook/jira` | (Jira webhook) | Ticket events. Must reach **this** service (`/webhook` prefix), not the admin UI. |
+| `GET` | `/api/v1/jobs` | `X-Api-Key` | APScheduler job list. |
+
+MCP gateway (mounted when both gateway env vars are set). Paths below are after the `/mcp-gateway` prefix:
+
+| Path | Auth | Role |
+|---|---|---|
+| `/mcp` | Bearer (OAuth) | Streamable HTTP MCP. No token → 401 + `WWW-Authenticate`. |
+| `/healthz` | none | Confirms the mount succeeded. |
+| `/oauth/register`, `/oauth/authorize`, `/oauth/google-callback`, `/oauth/token` | (OAuth) | Dynamic client registration, Google sign-in, PKCE token exchange. |
+
+Discovery documents for that issuer also live at `/.well-known/oauth-authorization-server/mcp-gateway` and `/.well-known/oauth-protected-resource/mcp-gateway` on the **orchestrator root** (they are not under `/mcp-gateway`).
+
+`IDENTITY_ASSERTION_KEY` is **not** `API_KEY`. Only callers that hold it may assert `user_email` when the auth DB lookup misses (skill builder). Unset = nobody gets that fallback.
+
+Local tools bridge (`mcp_servers/bridge.py`, port 8080): `X-API-Key` on `/servers`, tool list, and `POST /servers/{name}/tools/{tool}`. Errors are sanitized before they go back to the model. In production on App Platform, tools are **imported in-process** by the orchestrator, not this extra HTTP service.
 
 ## Integrations and dependencies
 
-- **Model provider:** Google Gemini APIs.
-- **Instruction/knowledge sources:** Google Docs + database artifacts + RAG indexed sources.
-- **Data layer:** Supabase/Postgres usage for chat state, artifacts, and auth context.
-- **Tooling layer:** MCP server registry and tool definitions (`mcp_servers/server_registry.py`, `tool_definitions.json`).
-- **Deployment model:** containerized multi-service runtime via Docker Compose and platform deployment descriptors.
+- **LLM:** Gemini by default; `LLM_PROVIDER=openrouter` for OpenAI-style completions (`shared/llm/`).
+- **Data:** Chat database (writeable; conversations, prompts, skills, RAG, OAuth code single-use). Auth/ops database (read-only; accounts, grids, organizations). Optional Timescale / Victron VRM when analytics tools are enabled.
+- **Google:** Docs + Drive for optional prompt docs, context modules, and `/lpp` output. The **same** Web OAuth client is reused by the admin login and the MCP gateway (add a second authorized redirect URI for the gateway callback).
+- **Messenger:** Telegram bot + webhook. Mini App for operator-portal chat.
+- **Optional tools:** Metering API, Jira, Grafana, GRID3 GeoPackages, Langfuse traces (`LANGFUSE_ENABLED`).
+- **License:** MPL-2.0.
 
 ## Operations notes
 
-- This repo behaves as a multi-component platform (orchestrator + tools + RAG + shared libraries) rather than a single-process microservice.
-- Background scheduling is embedded in the orchestrator service (metrics sync, ingestion triggers, periodic tasks).
-- Key failure modes to check first:
-  - missing API keys/secrets for Gemini or tool bridge authentication,
-  - unavailable tools service causing orchestrator tool-call failures,
-  - stale or inaccessible instruction docs leading to degraded response quality,
-  - RAG pipeline/indexing drift reducing retrieval relevance.
+- Two kinds of config: platform **secrets** (never edited from the Settings UI into the bot process) vs **flags** in `flag_registry.py` (Settings page; on DigitalOcean, saving can patch the live app spec and redeploy).
+- Prompt resolve order: DB override → attached Doc → bundled `shared/prompts/library/*.prompt`. Cache: ~1 minute for DB, up to an hour for Docs; “Reload cache” on the prompt detail.
+- Ingress is last-match / catch-all: `/chat`, `/mini-app`, `/api/mini-app`, `/webhook`, `/mcp-gateway`, and the two `/.well-known/oauth-*/mcp-gateway` paths must go to the orchestrator **with the path prefix kept**. Everything else is the admin UI.
+- Change impact:
+  - if chat/tool HTTP shapes change, Telegram, n8n, the admin skill builder, and MCP clients all need a look;
+  - if `STAFF_ORG_ID` is wrong, customers get staff tools (or staff get the customer prompt);
+  - if `/webhook` is routed to `anansi-app` instead of the orchestrator, Jira callbacks look successful and nothing happens in chat;
+  - if `MCP_GATEWAY_BASE_URL` does not end in `/mcp-gateway`, discovery and the Google redirect disagree with the mount path.
+- Failure modes:
+  - missing Gemini/OpenRouter key → no generations;
+  - tools service down (local Compose) or `{SERVER}_ENABLED` unset → tool calls fail, chat may still answer;
+  - Google Doc unreachable → bundled/DB prompt still works;
+  - `API_KEY` unset on the tools bridge → 500, not 401;
+  - second orchestrator replica → two processes can resume the same in-flight Telegram workflow, or file duplicate tickets for the same grid alert;
+  - Chat DB migration `0032_oauth_code_single_use.sql` not applied → MCP token exchange fails at the last step;
+  - Auth DB treated as writable / chat migrations pointed at it → those writes cannot work.
 
 ## Source of truth
 
 - Repository: [github.com/nxtgrid/nxt-ai-assistant](https://github.com/nxtgrid/nxt-ai-assistant)
-- Platform overview and architecture: `README.md`
-- Orchestrator API/runtime: `chat_orchestrator/orchestrator/api/app.py`
-- MCP bridge/tool execution: `mcp_servers/bridge.py`, `mcp_servers/server_registry.py`
-- RAG subsystem: `rag_pipeline/` and `rag_pipeline/README.md`
-- Shared cross-module code: `shared/README.md`
-- Local multi-service runtime: `docker-compose.yml`
+- Product and setup: `README.md`, `llms.txt`
+- Orchestrator: `chat_orchestrator/orchestrator/api/app.py`, `chat_orchestrator/.env.example`
+- Tools: `mcp_servers/bridge.py`, `mcp_servers/servers/`
+- MCP gateway: `mcp_servers/gateway/` (`tiers.py` is the allowlist)
+- Prompts: `shared/prompts/`, `shared/config/flag_registry.py`
+- Admin: `anansi_app/`
+- RAG: `rag_pipeline/`
+- Chat DB migrations: `db/migrations/`
+- App spec: `.do/app.example.yaml`

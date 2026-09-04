@@ -1,0 +1,135 @@
+---
+title: DigitalOcean App Platform
+---
+
+# Deploy nxt-ai-assistant on DigitalOcean App Platform
+
+One App Platform **app**, **two** web services. Example spec: `.do/app.example.yaml` in the source repo (placeholders only — never commit real secrets as `app.yaml`). Some live apps name the chat component `anansi-bot`; match whatever `name` you already use.
+
+| Component | What it is | HTTP | Health | Replicas |
+|---|---|---|---|---|
+| `chat-orchestrator` | Chat, Telegram, in-process tools, RAG scheduler, optional MCP gateway | **8000** | `GET /health` | **1** |
+| `anansi-app` | NiceGUI admin (prompts, Skills, settings, broadcasts, chat widget) | **8501** | `GET /healthz` | **1** |
+
+The admin process also runs the broadcast scheduler and Grafana indexer in-process. They are **not** separate App Platform jobs. The MCP gateway used to be a third service; it is now **mounted inside** the orchestrator.
+
+Source: `README.md` (Deployment, MCP gateway) and `.do/app.example.yaml`.
+
+## Ingress (order matters)
+
+A **single hostname** fronts both services. Rules are evaluated in order; the last rule is a catch-all. A new public path that you forget to list lands on the admin **login page**, not on a 404.
+
+Keep the path prefix when forwarding to the orchestrator (`preserve_path_prefix: true`). DigitalOcean strips it otherwise — `/chat/notify` would arrive as `/notify`.
+
+| Path prefix | Component | Prefix kept? | Why |
+|---|---|---|---|
+| `/chat` | orchestrator | yes | Telegram webhook and `POST /chat/notify` |
+| `/mini-app` | orchestrator | yes | Telegram Mini App UI |
+| `/api/mini-app` | orchestrator | yes | Mini App backend |
+| `/webhook` | orchestrator | yes | Jira. If this falls through to admin, Jira sees a 200 after login-gate redirect and never retries. |
+| `/mcp-gateway` | orchestrator | yes | MCP + OAuth. The gateway’s own routes are bare (`/mcp`, `/oauth/…`); Starlette’s mount strips `/mcp-gateway` **again**. |
+| `/.well-known/oauth-authorization-server/mcp-gateway` | orchestrator | yes | RFC 8414. This path does **not** start with `/mcp-gateway`. |
+| `/.well-known/oauth-protected-resource/mcp-gateway` | orchestrator | yes | RFC 9728. Same reason. |
+| `/` | `anansi-app` | stripped | Admin UI catch-all |
+
+`MCP_GATEWAY_BASE_URL` must be the public origin **including** `/mcp-gateway` (for example `https://your-app.example.com/mcp-gateway`). Discovery documents, Google’s redirect check, and the mount path all use that string.
+
+## Why one orchestrator replica
+
+In-flight Telegram workflows are tracked **in that process**. Alert correlation also uses an in-process lock. Two instances can race to resume the same packet or open duplicate tickets for the same grid. Stay at `instance_count: 1` until a distributed lock exists (the repo notes this next to the task set in `app.py`).
+
+Long site-design runs need a long SIGTERM grace period. The example spec uses `grace_period_seconds: 600` (platform max) and `drain_seconds: 30`.
+
+## Prerequisites
+
+- DigitalOcean App Platform access.
+- GitHub access to `nxtgrid/nxt-ai-assistant` (or your fork).
+- Chat database (Supabase, writeable) and a separate **read-only** auth/ops database.
+- Gemini API key (or OpenRouter if you switch `LLM_PROVIDER`).
+- Google OAuth (Web application client) plus a viewer email allowlist for the admin UI in production (`GRID_DESIGN_DEV_NO_AUTH` is local-only).
+- Optional: Jira, Telegram bot token + webhook secret, metering API, GRID3 files, Langfuse, MCP gateway (`MCP_GATEWAY_TOKEN_SECRET` + Chat DB migration `0032_oauth_code_single_use.sql`).
+
+## Shared secrets (app-level)
+
+Set these once so both services inherit them. Names match `.do/app.example.yaml`:
+
+| Variable | Role |
+|---|---|
+| `API_KEY` | Orchestrator API callers and (locally) the tools bridge. |
+| `IDENTITY_ASSERTION_KEY` | Separate from `API_KEY`. Admin skill builder asserts `user_email`. Unset = fail closed. Must match what `anansi-app` sends as `X-Identity-Assertion-Key`. |
+| `NOTIFY_SHARED_SECRET` | `X-Notify-Secret` on `POST /chat/notify`. Unset = all notify requests rejected. |
+| `AUTH_CLIENT_ID` / `AUTH_CLIENT_SECRET` | Admin login **and** the MCP gateway’s Google hop. Put these at **app** level so the orchestrator can see them. Add the gateway callback (`MCP_GATEWAY_BASE_URL` + `/oauth/google-callback`) as a second authorized redirect URI on the **same** Google client. |
+| Chat / auth DB URLs and keys | `SUPABASE_*` and/or `CHAT_DB_*`, `AUTH_DB_*` as in the example spec. |
+| `APP_URL` | Public URL of this app (OAuth redirects, links). |
+
+Operator flags (models, MCP toggles, timeouts) are meant to be changed from the admin **Settings** page. On DigitalOcean that page needs `DIGITALOCEAN_APP_ID` and `DIGITALOCEAN_API_TOKEN` so saves can update the live spec and redeploy. Without those, Settings is read-only in production (a file inside one container cannot reconfigure the other service).
+
+The gateway’s **on switch** is two env vars on the orchestrator component: `MCP_GATEWAY_BASE_URL` and `MCP_GATEWAY_TOKEN_SECRET`. Unset either and the gateway is not mounted; chat traffic is unchanged.
+
+## Option A — Build from GitHub (default)
+
+1. **Apps → Create App** → GitHub → `nxtgrid/nxt-ai-assistant` → branch `main`.
+2. Add **two** Docker components (not one, and not a Node buildpack):
+   - Orchestrator: Dockerfile `chat_orchestrator/Dockerfile`, HTTP port **8000**.
+   - Admin: Dockerfile `anansi_app/Dockerfile`, HTTP port **8501**.
+3. Instance count **1** on both.
+4. HTTP routes as in the table above. Autodeploy on `main` if you want git-push deploys.
+
+App Platform ignores image `HEALTHCHECK`. After the first deploy, set HTTP probes: `/health` on 8000 (example spec: 10s initial delay), `/healthz` on 8501 (60s initial delay — NiceGUI is slower to listen).
+
+## Option B — Pull prebuilt GHCR images (optional)
+
+Default GitHub+Dockerfile builds are slow (little layer cache; both services rebuild). `.github/workflows/build-images.yml` pushes images to GHCR. `.do/app.image.example.yaml` shows `image:` instead of `github:` + `dockerfile_path`.
+
+Switching is manual: back up the live spec (`doctl apps spec get <id>`), swap only the source blocks, `doctl apps update`, then `doctl apps create-deployment`. GHCR has **no** push-to-deploy webhook — a new tag does not restart the app by itself.
+
+Rollback: App Platform keeps recent deployments; or re-apply the spec backup.
+
+## Post-deploy checks
+
+```bash
+curl -sS https://<host>/health
+# may 404 if /health is not in ingress — probe the orchestrator component URL, or add a route.
+# Component health check hits the container directly.
+
+curl -sS https://<host>/healthz
+# admin
+
+curl -sS https://<host>/mcp-gateway/healthz
+# only if the gateway is mounted
+```
+
+Telegram: set the webhook to the **orchestrator** public URL (`/chat` prefix), not the admin UI.
+
+Jira: webhook URL must hit `/webhook/jira` on the orchestrator.
+
+Chat smoke (API key). If public ingress only exposes `/chat` (not `/`), use that path:
+
+```bash
+curl -sS -X POST https://<host>/chat \
+  -H "X-Api-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"ping"}'
+```
+
+MCP client (after Google OAuth is wired):
+
+```bash
+claude mcp add --transport http anansi-mcp https://<host>/mcp-gateway/mcp
+```
+
+## Failure modes
+
+| Symptom | Likely cause | What to check |
+|---|---|---|
+| Admin login loop / 401 | OAuth or allowlist | `AUTH_CLIENT_*` (or `GOOGLE_CLIENT_*`), `AUTH_REDIRECT_URI`, `ALLOWED_VIEWER_EMAILS`, `APP_URL` |
+| Settings save does nothing useful | No DO API backend | `DIGITALOCEAN_APP_ID`, `DIGITALOCEAN_API_TOKEN` |
+| Jira “works” but no Telegram | Webhook routed to admin | Ingress: `/webhook` → orchestrator, prefix kept |
+| Nested `/chat/…` 404 while `/chat` “works” | Prefix stripped | `preserve_path_prefix: true` on `/chat` |
+| `/chat/notify` 403 | Secret missing or wrong | `NOTIFY_SHARED_SECRET` vs `X-Notify-Secret` |
+| Skill builder cannot impersonate | Expected if unset | `IDENTITY_ASSERTION_KEY` on **both** services |
+| Duplicate Telegram workflows / duplicate tickets | Two orchestrator replicas | Instance count **1** |
+| Tools missing | Server not enabled | `{SERVER}_ENABLED` / Settings MCP toggles; credentials in env |
+| MCP 404 or redirect to login | Ingress or mount | `/mcp-gateway` and both `/.well-known/oauth-*/mcp-gateway` → orchestrator; `MCP_GATEWAY_BASE_URL` ends in `/mcp-gateway` |
+| MCP token exchange fails at the end | Chat DB migration | Apply `db/migrations/0032_oauth_code_single_use.sql` to the **chat** database |
+| MCP Google callback mismatch | Redirect URI | Same OAuth client as admin; second URI = `MCP_GATEWAY_BASE_URL` + `/oauth/google-callback` |

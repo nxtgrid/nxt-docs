@@ -11,7 +11,7 @@ This guide deploys `nxt-device-messaging` on [DigitalOcean App Platform](https:/
 
 Both paths produce the same runtime: a Node 24 Fastify process listening on port **3100** with liveness at `/healthz`. App Platform **does not** run the Dockerfile `HEALTHCHECK`; configure the component probe (see below).
 
-**Instance count must stay 1** against a given Valkey/Redis (ADR-007). A second replica competes on engine timers and can split ChirpStack ACK vs uplink.
+**Instance count must stay 1** against a given Valkey/Redis. A second replica competes on engine timers and can split ChirpStack ACK vs uplink.
 
 Pin GHCR tags (`v0.1.2`, not only `latest`) in production. Images are multi-arch (`linux/amd64`, `linux/arm64`).
 

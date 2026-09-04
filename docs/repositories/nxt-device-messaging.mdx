@@ -20,9 +20,9 @@ A "message" here is a command or read to physical hardware (read credit, deliver
   - Outbound HMAC-signed webhook events and Prometheus metrics.
 - Out of scope:
   - Running ChirpStack, a CALIN cloud, or meter firmware — those stay with the operator / vendor.
-  - Billing, wallet, or meter-domain business logic (owned by the adopter; in the NXT suite, [nxt-backend](./nxt-backend) when Metering is enabled).
-  - Multi-replica HA — v1 is **one process** against a given Valkey (ADR-007).
-  - Embedding inside `nxt-backend` / `tiamat`. Extraction is complete; the consumer talks HTTP + webhook.
+  - Billing, wallet, or meter-domain business logic (owned by the adopter; in this suite, [nxt-backend](./nxt-backend) when metering is enabled).
+  - Running more than **one process** against a given Valkey. A second replica races engine timers and can split LoRaWAN ACK vs uplink.
+  - Living inside `nxt-backend`. Callers talk HTTP + webhook.
 
 ## What this service does in production
 
@@ -94,23 +94,23 @@ TypeScript/Zod wire types: npm package `@nxtgrid/device-messaging-contract` (not
 ## Integrations and dependencies
 
 - **Upstream / sidecars:** Valkey or Redis (required). [nxt-sts](./nxt-sts) when `{ "id": "nxt-sts" }` is in `plugins[]` (`NXT_STS_URL`). ChirpStack when using `calin-chirpstack`. CALIN HTTP APIs for `calin-api-v1` / `calin-api-v2`.
-- **Downstream consumers:** any HTTP adopter that enqueues and handles the webhook. In the NXT suite, `nxt-backend` is the intended consumer when Metering is enabled (HTTP + HMAC webhook, types from `@nxtgrid/device-messaging-contract`); that capability is **not imported yet** on `nxt-backend` `main`.
-- **Stack:** Node 24, Fastify, Zod (no DI container — ADR-001). License MPL-2.0.
+- **Downstream consumers:** any HTTP adopter that enqueues and handles the webhook. `nxt-backend` is the intended consumer when metering is enabled (HTTP + HMAC webhook, types from `@nxtgrid/device-messaging-contract`); that capability is **not imported yet** on `nxt-backend` `main`.
+- **Stack:** Node 24, Fastify, Zod (plain modules, no DI container). License MPL-2.0.
 - **Config split:** JSON artifact (`$schemaVersion: "1"`) for plugins, webhook URL, retries — not passwords. Env for secrets, Redis, `PORT`, and which artifact to load. Precedence: `DEVICE_MESSAGING_CONFIG_JSON` → `_URL` → `_PATH` → bundled `config.default.json`. Plugin listed in `plugins[]` with missing env → **boot fails**. Request for a plugin you did not enable → that request fails, process stays up.
 
 ## Operations notes
 
 - Runtime: one HTTP process + one engine interval (`ENGINE_TICK_INTERVAL_MS` = 1000). Timeouts/backoffs are observed on the next tick (whole seconds are the useful unit). `engine.enabled: false` is ingest/inspect only.
-- **One replica.** A second process against the same Redis competes on timers and can split ChirpStack ACK vs uplink across in-memory correlators (ADR-007).
+- **One replica.** A second process against the same Redis competes on timers and can split ChirpStack ACK vs uplink across in-memory correlators.
 - Image `HEALTHCHECK` probes `/healthz` on `PORT`. PaaS ignores it — set the platform HTTP probe.
 - Logging: pretty stdout by default; `"logging": { "stdout": "json" }` for aggregators.
 
 Change impact map:
 
-- if enqueue/webhook shapes change, update `@nxtgrid/device-messaging-contract` consumers (`nxt-backend` Metering, any adopter).
+- if enqueue/webhook shapes change, update `@nxtgrid/device-messaging-contract` consumers (`nxt-backend` metering, any adopter).
 - if `nxt-sts` token types or URL change, mint via `POST /token/generate` / sidecar `NXT_STS_URL` breaks.
 - if ChirpStack integration URL or ingress API key changes, LoRaWAN callbacks 401/miss and jobs stall in-flight.
-- if you scale replicas without revisiting ADR-007, deliveries and correlators silently split.
+- if you add a second replica against the same Redis, deliveries and correlators silently split.
 
 Failure modes to check first:
 
@@ -134,5 +134,5 @@ Failure modes to check first:
 - Plugin catalog: `src/plugins/catalog.ts`
 - Wire package: `packages/contract/`
 - Config: `src/config/`, `config.default.json`, `config.example.json`, `.env.example`
-- Single-replica constraint: `docs/architecture/007-single-replica-deployment.md`
+- Why one replica: `docs/architecture/` (single-replica note)
 - Deployment: `docs/deployment/` (hub: [DigitalOcean App Platform](./nxt-device-messaging/digital-ocean))

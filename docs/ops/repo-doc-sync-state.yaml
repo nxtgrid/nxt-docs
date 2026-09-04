@@ -4,8 +4,8 @@ nxt-ai-assistant:
   standard: single-repo
   doc_mode: maintenance
   status: standard-compliant
-  last_synced_sha: 5be2fdbb5f5edb908f8619afa201a390313d9a18
-  last_synced_at: 2026-05-06
+  last_synced_sha: 6ad556343a25cdca36a80b0a8c1a2c31779fdfca
+  last_synced_at: 2026-09-04
 
 nxt-backend:
   repo: nxtgrid/nxt-backend
@@ -14,7 +14,7 @@ nxt-backend:
   doc_mode: maintenance
   status: standard-compliant
   last_synced_sha: cd581328cd477d26f4fba7be0f84ccb12f90f8cb
-  last_synced_at: 2026-09-03
+  last_synced_at: 2026-09-04
 
 nxt-control-room:
   repo: nxtgrid/nxt-control-room
@@ -41,7 +41,7 @@ nxt-device-messaging:
   doc_mode: maintenance
   status: standard-compliant
   last_synced_sha: 212dcc06370daf4e8f63ed195dc4ab3a91fbc6e0
-  last_synced_at: 2026-09-03
+  last_synced_at: 2026-09-04
 
 nxt-field-ops:
   repo: nxtgrid/nxt-field-ops

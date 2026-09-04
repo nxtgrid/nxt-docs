@@ -11,7 +11,15 @@ const sidebars: SidebarsConfig = {
         id: 'repositories/index',
       },
       items: [
-        'repositories/nxt-ai-assistant',
+        {
+          type: 'category',
+          label: 'nxt-ai-assistant',
+          link: {
+            type: 'doc',
+            id: 'repositories/nxt-ai-assistant',
+          },
+          items: ['repositories/nxt-ai-assistant/digital-ocean'],
+        },
         {
           type: 'category',
           label: 'nxt-backend',
@@ -24,6 +32,7 @@ const sidebars: SidebarsConfig = {
             'repositories/nxt-backend/worker',
             'repositories/nxt-backend/shared-libs',
             'repositories/nxt-backend/data-layer',
+            'repositories/nxt-backend/digital-ocean',
             {
               type: 'category',
               label: 'Legacy stack',
