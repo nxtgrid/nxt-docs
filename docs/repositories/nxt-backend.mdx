@@ -7,83 +7,112 @@ sidebar_position: 1
 
 ## Purpose
 
-`nxt-backend` is the central backend monorepo for NXT mini-grid operations. It combines synchronous operations APIs, meter provisioning, background automation, and telemetry/time-series processing into one Nx-managed platform.
+`nxt-backend` is a NestJS / Nx backend for operating mini-grids: organizations and users, and (as they land) metering, payments, production monitoring, and related jobs.
+
+Which of those feature areas actually run is **config-selected**. A JSON file turns capabilities and vendor integrations on or off; passwords and API keys stay in environment variables. Two deployments can therefore run different feature sets from the same tree without changing code.
+
+What you can run **today** is still small: identity, organizations, and user administration, in two processes (`api` and `worker`). Metering, payments, notifications, field ops, and telemetry collectors are not loaded in those processes yet. Older service layouts and the full historical module set sit under `legacy/` while that work continues.
 
 ## Scope
 
 - In scope:
-  - Four deployable backend services: `tiamat`, `talos`, `loch`, `yeti`.
-  - Shared backend libraries (`libs/core`, `libs/helpers`, `libs/timeseries`).
-  - Primary relational data workflows in Supabase/PostgreSQL plus time-series workloads in TimescaleDB.
-  - Operational integrations (payments, notifications, LoRaWAN, MQTT/Victron, forecast/weather APIs).
-
-Out of scope:
-
-- Frontend product UX orchestration and app-side routing.
-- Component-level endpoint payload definitions beyond source app docs and code contracts.
-
-## Architecture diagrams
-
-Interactive HTML diagrams (meter communications, device messaging, after-effects) are published on the dedicated [Architecture diagrams](./nxt-backend/diagrams) page. Source files live under `docs/diagrams` in the backend repository.
+  - Two deployable processes: [`api`](./nxt-backend/api) (HTTP) and [`worker`](./nxt-backend/worker) (scheduled work).
+  - Shared library [`libs/core`](./nxt-backend/shared-libs) (`@nxt/core`).
+  - Database schema in `supabase/migrations/` (TypeScript types are generated from that schema and committed).
+  - JSON config (`config.default.json`, overridable) plus env secrets. When a metering feature is present **and** enabled in config, meter commands go over HTTP to [`nxt-device-messaging`](./nxt-device-messaging) — this repo does not run that queue itself.
+  - `legacy/` — older apps and libraries kept as a reference. It is not what you deploy from `apps/`.
+- Out of scope on current `main`:
+  - Deploying the old four named services (`tiamat`, `talos`, `loch`, `yeti`) as the product. Those trees live under `legacy/`.
+  - Complete metering, payments, notifications, or telemetry behavior until those modules are moved into `apps/api` / `apps/worker` and turned on in config.
+  - Operator dashboards and field apps (separate repositories that call `api`).
 
 ## Key components
 
+What you run:
+
 - Apps:
-  - [tiamat](./nxt-backend/tiamat): primary REST/WebSocket operations API.
-  - [talos](./nxt-backend/talos): meter provisioning and hardware import workflows.
-  - [loch](./nxt-backend/loch): cron jobs, async integrations, notification dispatch.
-  - [yeti](./nxt-backend/yeti): periodic telemetry snapshots and forecasting pipelines.
+  - [api](./nxt-backend/api) — HTTP: health, login identity, invite/update users.
+  - [worker](./nxt-backend/worker) — background process (today a scheduler heartbeat only).
 - Shared architecture:
   - [shared-libs](./nxt-backend/shared-libs)
   - [data-layer](./nxt-backend/data-layer)
 
-## Monorepo boundary map
+Older layout (reference):
 
-- `tiamat` owns synchronous API contracts for operations, customers, payments, meters, and real-time frontend updates.
-- `talos` owns provisioning execution against hardware/vendor systems (especially CALIN registration paths).
-- `loch` owns scheduled/event-driven side effects (notifications, payout automation, EpiCollect imports, MQTT-driven jobs).
-- `yeti` owns time-series collection, aggregation, forecasting, and diagnostics snapshots.
-- `libs/*` own cross-cutting backend primitives; app-specific business behavior remains app-local.
+- [Legacy stack](./nxt-backend/tiamat) — previous HTTP, provisioning, jobs, and telemetry services, plus [diagrams](./nxt-backend/diagrams) drawn for that world.
 
-## Data architecture (Supabase vs TimescaleDB)
+## Monorepo structure
 
-- Supabase/PostgreSQL is the transactional source of truth (accounts, grids, wallets, orders, operational entities).
-- Supabase Auth underpins authentication/identity for user and service access patterns.
-- TimescaleDB stores high-frequency telemetry and derived snapshots across meter/grid/MPPT/router/DCU dimensions.
-- Practical split:
-  - operational commands + business state -> relational store
-  - periodic measurements + forecast/diagnostic series -> TimescaleDB
+| Path | Role |
+|---|---|
+| `apps/api` | HTTP process. |
+| `apps/worker` | Scheduled / background process. |
+| `libs/core` | Config loader, Supabase client, logger, generated DB types. |
+| `supabase/` | Migrations, local `seed.sql`, CLI config. |
+| `config.default.json` | Default JSON config (`$schemaVersion: "1"`). `capabilities` and `integrations` are empty objects until features land. |
+| `legacy/` | Older Nx tree. Live typecheck does not include it. |
+
+Nx 23, Node **24.x**, pnpm 11. Projects you build: `api`, `worker`, `core`.
+
+## App boundary map
+
+- `api` handles HTTP (CORS, request validation, JWT or `X-API-KEY`). It does not run cron.
+- `worker` runs the Nest scheduler. Today it logs `heartbeat` every 30 seconds and exposes no HTTP routes. It still binds `PORT` so the process can start — that port is not a public API.
+- `libs/core` is shared plumbing and the config schema. Feature code (meters, payments, …) belongs in the process that serves it, behind a config flag, not dumped into core “just in case.”
+- `api` and `worker` start separately. They share the **database**, not a required HTTP mesh between them.
+- [`nxt-device-messaging`](./nxt-device-messaging) is a **different** repository. Wire it in only when metering exists in this codebase and is enabled in JSON. Until then, `DEVICE_MESSAGING_*` in `apps/api/.env.example` does nothing.
+
+## Data architecture
+
+- **Now:** Supabase Postgres holds organizations, accounts, members, API keys, and seeded grid rows. Supabase Auth issues JWTs. Prefer JWKS (`SUPABASE_JWKS_URL`) over a shared HMAC secret. `GET /health` on `api` reads `organizations` to prove the database is reachable.
+- **Later:** TimescaleDB for high-frequency snapshots and collectors. That stack is not attached to `api` / `worker` yet (older TypeORM code is under `legacy/libs/timeseries`).
+- Schema changes are SQL migrations. Generated types in `libs/core` must be regenerated after migrations. You apply migrations to your own Supabase project on purpose (`db push`); a git push does not migrate production for you. Locally: `pnpm exec supabase start` / `db reset`.
 
 ## Integration map
 
-- Payments and finance: Flutterwave order/payment paths, payout automation, exchange-rate feeds.
-- Comms and notifications: SendGrid, Africa's Talking, Telegram/Flow XO, Make.com scenario triggers.
-- Grid/IoT stack: CALIN APIs, ChirpStack LoRaWAN webhooks, Victron APIs/MQTT, ZeroTier node sync.
-- External data providers: Solcast forecasts, weather/sunrise inputs, EpiCollect field data ingestion.
+- **Required today:** Supabase (Auth + Postgres).
+- **Optional later, chosen in config:** Victron, Solcast, CALIN, ChirpStack, Flutterwave, SendGrid, Africa's Talking, Telegram, Make, Jira, ZeroTier, EpiCollect, and similar. Missing optional vendors should skip that integration, not crash the process.
+- **Meter commands (when metering is on):** HTTP + signed webhook to `nxt-device-messaging`. STS token minting is that service’s [`nxt-sts`](./nxt-sts) plugin, not a library inside `api`.
+- **Dashboards:** `nxt-control-room`, `nxt-crm`, `nxt-field-ops`, and `nxt-topup` are the HTTP clients this API is built for.
 
 ## Runtime and deployment model
 
-- Nx monorepo builds/runs each app independently (`nx serve/build <app>`), enabling separate runtime scaling.
-- Runtime archetypes:
-  - API-heavy synchronous service (`tiamat`)
-  - provisioning worker/API (`talos`)
-  - cron/automation worker with selective endpoints (`loch`)
-  - telemetry snapshot/diagnostics worker with selective endpoints (`yeti`)
-- Shared Node/Nest stack + environment-driven integration credentials across services.
+- Serve: `pnpm exec nx serve api` or `worker`. Check: `pnpm exec nx run-many -t lint typecheck build test -p api,worker,core`.
+- Config is read **before** the Nest app is created (`loadConfig()`). Order: `NXT_CONFIG_JSON` (inline) → `NXT_CONFIG_URL` (reserved, not implemented) → `NXT_CONFIG_PATH` (file) → bundled `config.default.json`. Secrets: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and so on.
+- Typical App Platform shape: `api` and `worker` built from **this** repo (Node.js buildpack). Add `nxt-device-messaging` as a third component only when metering is on. Details in the source repo: `docs/deployment/digital-ocean-buildpack.md`, `docs/deployment/supabase.md`.
+- You can run a new `api` beside an old one and switch traffic. Do **not** run two `worker` processes that would execute the same jobs twice — stop the old worker, then start the new one.
 
 ## How changes flow through the monorepo
 
-1. Identify owning runtime path first: request/response (`tiamat`), provisioning (`talos`), async jobs (`loch`), or telemetry (`yeti`).
-2. If multiple apps need shared behavior, promote primitives into `libs/*` with compatibility checks for existing consumers.
-3. Apply schema/storage changes in correct data plane (`supabase/` migrations vs timeseries-oriented paths).
-4. Validate both direct behavior and side effects:
-   - API contract and auth paths
-   - scheduled job outcomes
-   - integration webhooks/callbacks
-   - telemetry snapshot integrity
-5. Confirm cross-app dependencies (e.g., Talos -> Tiamat callbacks, Loch/Yeti -> Tiamat data consumers) before release.
+1. HTTP behavior → `api`. Timed collectors and jobs → `worker`.
+2. If the feature is optional, it should be gated in JSON so a deployment can leave it off. Off means the module is not constructed.
+3. Schema: add a file under `supabase/migrations/`, then `pnpm generate-types:local`. Do not hand-edit generated types.
+4. Shared plumbing may go in `libs/core`. Business rules for one feature stay with that feature.
+5. Do not add product behavior in `legacy/`. Move it into `apps/*` (and config) instead.
+6. Meter command HTTP/webhook shapes live in [`nxt-device-messaging`](./nxt-device-messaging) and `@nxtgrid/device-messaging-contract`, not in `legacy/` device-message modules.
 
 ## Setup and run
 
 - Repository: [github.com/nxtgrid/nxt-backend](https://github.com/nxtgrid/nxt-backend)
-- Follow source repository onboarding/runbooks for local setup, environment variables, and service startup.
+- From the source `README.md`:
+
+  ```bash
+  pnpm install
+  pnpm exec supabase start
+  pnpm exec supabase db reset       # migrations + local seed.sql
+  pnpm generate-types:local
+  pnpm exec nx serve api            # or: worker
+  ```
+
+- Copy root `.env.example` → `.env` and `apps/api/.env.example` → `apps/api/.env` after `supabase start` (publishable key + JWKS URL for `api`).
+- `seed.sql` is for local development only (`docs/deployment/supabase.md` in the source repo).
+
+## Source of truth
+
+- Commands and current status: `README.md`, `AGENTS.md`
+- Longer design notes: `docs/architecture/`, `docs/plans/002-oss-migration.md`
+- Processes: `apps/api/src/modules/app.module.ts`, `apps/worker/src/modules/app.module.ts`
+- Config: `libs/core/src/config/`, `config.default.json`
+- Schema: `supabase/migrations/`, `supabase/seed.sql`
+- Deploy: `docs/deployment/`
+- Older tree: `legacy/`

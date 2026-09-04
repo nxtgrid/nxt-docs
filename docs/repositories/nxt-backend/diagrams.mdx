@@ -6,6 +6,10 @@ import EmbeddedHtmlDiagram from '@site/src/components/EmbeddedHtmlDiagram';
 
 # Architecture diagrams
 
+:::warning Older layout
+These diagrams still show the previous service split (one large HTTP app, in-process meter messaging, after-effects). Meter command delivery is now [`nxt-device-messaging`](../nxt-device-messaging). What you deploy from this repo is [`api`](./api) and [`worker`](./worker).
+:::
+
 These interactive diagrams are maintained in [`nxt-backend/docs/diagrams`](https://github.com/nxtgrid/nxt-backend/tree/main/docs/diagrams) and mirrored here as static assets so they render inside NXT Docs.
 
 ## Meter communications flow

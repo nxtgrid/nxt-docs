@@ -1,0 +1,47 @@
+---
+title: worker
+---
+
+# worker
+
+`worker` (`apps/worker`) is the background process: timed jobs and collectors, not the public HTTP API.
+
+Today it only proves the scheduler works: every 30 seconds it logs `heartbeat`. Telemetry snapshots, notification dispatch, and similar jobs are not in this process yet. They will land here (behind config flags) as those modules are moved out of `legacy/`.
+
+## Responsibilities
+
+- Start Nest with `ScheduleModule` and `HeartbeatService`.
+- Use the same `@nxt/core` stack as [`api`](./api) (logger, Supabase, HTTP) and the same boot-time `loadConfig()`.
+- Keep `AppModule` ready for optional job modules (production monitoring, notifications, automation, …) once they exist in this tree.
+
+## Ownership boundaries
+
+- Owns scheduled work. Dashboards talk to [`api`](./api), not to `worker`.
+- No HTTP controllers are registered. The process still calls `app.listen(PORT || 3000)` so Nest can boot — do not publish that port as an API.
+- Do not run this worker **and** the old job/telemetry apps under `legacy/` against the same jobs or schedules. Stop the old process, then start this one.
+- No calls to [`nxt-device-messaging`](../nxt-device-messaging) until metering job code exists and is enabled in config.
+
+## Interfaces
+
+- **Inbound:** none today (no HTTP routes).
+- **Outbound:** Supabase is wired for when jobs need the database. Heartbeat only writes logs.
+- **Schedule:** `@Interval(30_000)` in `apps/worker/src/modules/heartbeat/heartbeat.service.ts`.
+
+Later jobs should prefer database-backed work queues over a new web of service URLs. If `worker` must call `api`, use machine auth (`X-API-KEY`), not an unauthenticated hop.
+
+## Runtime and operations
+
+- `pnpm exec nx serve worker`. Production-style: `nx build worker` then `node apps/worker/dist/main.js`.
+- Extra replicas are safe for the current heartbeat (it only logs). They will **not** be safe for collectors that must run once.
+- Watch: process up, `heartbeat` lines, database errors once real jobs exist, a **single** worker while you are replacing an older job runner.
+
+## Failure and edge cases
+
+- Same config rules as `api`: missing `config.default.json` / `NXT_CONFIG_*` fails boot.
+- A listening port with only heartbeat logs is expected right now — it does not mean collectors are running.
+- Two schedulers on one database (this worker plus `legacy/apps/loch` or `legacy/apps/yeti`) can double-run jobs.
+
+## Source of truth
+
+- `apps/worker/src/main.ts`, `apps/worker/src/modules/app.module.ts`
+- `apps/worker/src/modules/heartbeat/`

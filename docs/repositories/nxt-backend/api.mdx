@@ -1,0 +1,58 @@
+---
+title: api
+---
+
+# api
+
+`api` (`apps/api`) is the HTTP process. It is what dashboards and scripts call.
+
+Today it only serves **identity and user administration**: health, “who am I”, and invite/update/delete for members, agents, and customers. Meter, payment, and similar routes are not registered yet — they will appear here as those modules are added and enabled in config.
+
+## Responsibilities
+
+- Nest HTTP with CORS (default `PORT` **3000**).
+- Authenticate people with a Supabase JWT (`Authorization: Bearer`) and machines with `X-API-KEY`. One guard accepts either.
+- Routes below (`/health`, `/auth/me`, `/user-admin/...`).
+- Read JSON config at boot (`loadConfig()` in `main.ts`) **before** the Nest app is created, so flags and branding are available to modules.
+- Leave room in `AppModule` for optional feature modules; none of those flags are populated in `config.default.json` yet.
+
+## Ownership boundaries
+
+- Owns request/response and auth. Does **not** own cron or collectors — that is [`worker`](./worker).
+- Does not deliver commands to meters. When metering exists **and** is enabled in config, `api` will call [`nxt-device-messaging`](../nxt-device-messaging) (`DEVICE_MESSAGING_*` in `apps/api/.env.example`). With empty `capabilities`, those variables have no effect.
+- Meter provisioning code still lives under `legacy/apps/talos` as reference; it is not part of this process yet.
+
+## Interfaces
+
+| Method | Path | Auth | Role |
+|---|---|---|---|
+| `GET` | `/health` | none | Process **and** database: selects `id` from `organizations`. `{ "status": "ok" }`. |
+| `GET` | `/auth/me` | JWT or `X-API-KEY` | Current user (email, account, org, member type). |
+| `POST` | `/user-admin/invite-member` | same | Invite a member. |
+| `POST` | `/user-admin/update-member` | same | Update a member. |
+| `POST` | `/user-admin/create-agent` / `update-agent` | same | Agent accounts. |
+| `POST` | `/user-admin/create-customer` / `update-customer` | same | Customers (`CreateCustomerDto` from `@nxt/core`). |
+| `DELETE` | `/user-admin/member/:id`, `/agent/:id`, `/customer/:id` | same | Remove that account type. |
+
+Manual checks: `apps/api/http/` (httpYac). Local seed key: `dev-api-key-platform-superadmin` (see `docs/deployment/supabase.md` in the source repo).
+
+JWT: set `SUPABASE_JWKS_URL` when you can; `SUPABASE_JWT_SECRET` only if JWKS is unset. API keys are looked up with the privileged Supabase client. After that lookup, handlers may still use that privileged client for DB work — user-scoped (RLS) sessions for machine callers are not fully in place yet.
+
+## Runtime and operations
+
+- `pnpm exec nx serve api` / `nx build api`, then `node apps/api/dist/main.js`.
+- Shared modules from `@nxt/core`: logger, Supabase, HTTP.
+- Watch: `/health` failing (Postgres down), 401 on `/auth/me` (JWKS, publishable key, or API-key row), crash at boot if `config.default.json` (or `NXT_CONFIG_*`) cannot be loaded.
+
+## Failure and edge cases
+
+- `/health` returning 200 means the database answered, not only that Node is listening.
+- Missing `SUPABASE_PUBLISHABLE_KEY` or JWKS/JWT secret: browser JWT auth fails. A valid `X-API-KEY` may still work.
+- Deleted API-key accounts, or keys without member/org claims → 401 (`api-key.strategy.ts`).
+- Setting `DEVICE_MESSAGING_*` without a metering module in the app does not create a client. Config has to enable that feature once the code exists.
+
+## Source of truth
+
+- `apps/api/src/main.ts`, `apps/api/src/modules/app.module.ts`
+- `apps/api/src/modules/auth/`, `health/`, `user-admin/`
+- `apps/api/.env.example`, `apps/api/http/`

@@ -23,7 +23,7 @@ const repos: Repo[] = [
   {
     name: 'nxt-backend',
     description:
-      'Backend platform for mini-grid operations, payments, monitoring, and prepaid meter interactions.',
+      'Self-hostable NestJS/Nx backend (api + worker); features selected by JSON config.',
     url: 'https://github.com/nxtgrid/nxt-backend',
   },
   {

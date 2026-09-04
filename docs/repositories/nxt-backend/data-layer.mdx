@@ -4,50 +4,47 @@ title: data-layer
 
 # Data layer
 
-The `nxt-backend` monorepo uses a mixed data architecture for operational and time-series workloads.
+`api` and `worker` talk to **one** store today: Supabase Postgres (and Supabase Auth). TimescaleDB is the planned place for high-frequency telemetry; it is not connected to these processes yet.
 
 ## Data ownership model
 
-- Supabase/PostgreSQL is the transactional system of record (users, organizations, billing entities, operational state).
-- Supabase Auth owns authentication and identity concerns.
-- TimescaleDB owns high-volume telemetry, snapshots, and time-series analytics paths.
+- **Supabase/PostgreSQL** — organizations (including a platform-operator org type), accounts, members, API keys, grids. Auth issues JWTs; claims include `app_metadata` such as `account_id` and `organization_id`.
+- **Supabase Auth** — interactive login. `api` verifies tokens via JWKS (`SUPABASE_JWKS_URL`) or, if that is unset, `SUPABASE_JWT_SECRET`.
+- **TimescaleDB** — snapshots and collectors when production-monitoring code moves in. Older TypeORM mapping is under `legacy/libs/timeseries`.
+- **Valkey/Redis for meter queues** — not in `api` / `worker`. When metering is on, [`nxt-device-messaging`](../nxt-device-messaging) has its own Valkey.
 
 ## Key areas
 
-- `supabase/`
-  - `migrations/` for relational schema evolution.
-  - `functions/` for edge/runtime functions such as customer/order/meter-consumption related handlers.
-  - `config.toml` for local Supabase runtime configuration.
-- `libs/timeseries/`
-  - TypeORM-backed Timescale connection and snapshot entities.
-  - Dedicated migration path under `libs/timeseries/migration`.
-- App-level ownership:
-  - `tiamat`: transactional business state and operational APIs.
-  - `yeti`: telemetry and snapshot generation.
-  - `loch`: async automation that reads/writes both planes as needed.
+- `supabase/migrations/` — the schema. Current init includes `20260710120000_init.sql`. New changes are new migration files, not edits to history.
+- `supabase/seed.sql` — **local only**: sample orgs, users, a demo grid, `dev-api-key-platform-superadmin`. Do not use this as a production bootstrap (`docs/deployment/supabase.md` in the source repo).
+- `supabase/config.toml` — local CLI. Seed runs on `db reset`, not on every `start` against an existing volume.
+- Generated types: `libs/core/src/types/supabase-types.ts` (plus adjusted). They come from migrations in this git revision, not from pulling a production database.
+- No `supabase/functions/` in the current tree.
 
 ## Notes
 
-- TypeORM is used intentionally for TimescaleDB access.
-- For the primary Supabase Postgres database, migration away from legacy TypeORM usage is in progress.
+- `GET /health` on `api` uses the privileged (`service_role`) client against `organizations`, so it is not an RLS check.
+- Interactive API calls should use a user-scoped client (RLS). `X-API-KEY` still often continues on the privileged client after the key is resolved — tighten that before exposing powerful machine keys.
+- Extra Postgres login roles for Grafana/Make-style tools are operator-specific; they are not in the default migrations.
 
 ## Migration and change flow
 
-1. Classify the change as transactional, time-series, or both.
-2. Apply schema evolution in the owning path (`supabase/` vs time-series migration path).
-3. Update app/service logic in owning components (`tiamat`, `talos`, `loch`, `yeti`).
-4. Validate integration behavior where transactional state and telemetry-derived state intersect.
+1. Add SQL under `supabase/migrations/`.
+2. `pnpm exec supabase db reset` (or apply locally), then `pnpm generate-types:local`.
+3. Update `api` / `worker` (or a feature module) that reads the new columns.
+4. Apply the same migrations to each environment with `supabase db push` — not automatically on git push.
+5. When Timescale arrives, keep high-frequency series on that plane, not in `public` “for convenience.”
+
+Turning a feature **off** in JSON stops its **code**. Tables for a feature you already shipped stay in the database. Tables that were dropped from this baseline on purpose are not revived by a config flag.
 
 ## Operational guidance
 
-- Keep transactional and telemetry access patterns separate unless a clear join strategy is defined.
-- Time-series changes should define retention/backfill implications before rollout.
-- Validate freshness expectations for snapshot tables that feed operator-facing diagnostics.
-- For Supabase function changes, confirm JWT requirements and function entrypoint wiring remain consistent with `supabase/config.toml`.
+- Seed emails/passwords are local fixtures.
+- Take a backup (or PITR checkpoint) before destructive production SQL.
+- Do not put high-frequency meter samples into the operational Postgres schema as a shortcut.
 
 ## Source of truth
 
-- `supabase/config.toml`
-- `supabase/migrations/`
-- `supabase/functions/`
-- `libs/timeseries/README.md`
+- `supabase/migrations/`, `supabase/seed.sql`, `supabase/config.toml`
+- `docs/deployment/supabase.md`
+- `libs/core/src/types/`

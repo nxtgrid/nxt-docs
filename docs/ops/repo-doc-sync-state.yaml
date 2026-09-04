@@ -13,8 +13,8 @@ nxt-backend:
   standard: monorepo
   doc_mode: maintenance
   status: standard-compliant
-  last_synced_sha: 68cc07cf6428256b68dcd153b38192f03adbd9c3
-  last_synced_at: 2026-05-12
+  last_synced_sha: cd581328cd477d26f4fba7be0f84ccb12f90f8cb
+  last_synced_at: 2026-09-03
 
 nxt-control-room:
   repo: nxtgrid/nxt-control-room
